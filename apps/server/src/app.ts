@@ -296,7 +296,9 @@ export async function createApp(
     return c.json({ ok: true });
   });
   app.post("/api/browsers", async (c) => {
-    const body = z.object({ url: z.url().max(4096) }).parse(await c.req.json());
+    const body = z
+      .object({ url: z.url({ protocol: /^https?$/ }).max(4096) })
+      .parse(await c.req.json());
     return c.json(await browser.create(c.get("owner"), body.url), 201);
   });
   app.get("/api/browsers/:id", async (c) => {
@@ -304,7 +306,9 @@ export async function createApp(
     return c.json(browser.decorate(owner, await browser.get(owner, c.req.param("id"))));
   });
   app.post("/api/browsers/:id/navigate", async (c) => {
-    const body = z.object({ url: z.url().max(4096) }).parse(await c.req.json());
+    const body = z
+      .object({ url: z.url({ protocol: /^https?$/ }).max(4096) })
+      .parse(await c.req.json());
     return c.json(await browser.navigate(c.get("owner"), c.req.param("id"), body.url));
   });
   app.post("/api/browsers/:id/close", async (c) =>
@@ -315,7 +319,14 @@ export async function createApp(
   );
   app.post("/api/browsers/:id/reopen", async (c) => {
     const raw = await c.req.text();
-    const body = z.object({ url: z.url().max(4096).optional() }).parse(raw ? JSON.parse(raw) : {});
+    const body = z
+      .object({
+        url: z
+          .url({ protocol: /^https?$/ })
+          .max(4096)
+          .optional(),
+      })
+      .parse(raw ? JSON.parse(raw) : {});
     return c.json(await browser.reopen(c.get("owner"), c.req.param("id"), body.url));
   });
   app.post("/api/browsers/:id/import-downloads", async (c) =>
