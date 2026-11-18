@@ -249,6 +249,10 @@ export async function createApp(
     await db.put(c.get("owner"), "conversations", { id: "default", messages });
     return c.json({ ok: true });
   });
+  app.delete("/api/conversation", async (c) => {
+    await db.remove(c.get("owner"), "conversations", "default");
+    return c.json({ ok: true });
+  });
   app.post("/api/files", async (c) => {
     const data = await c.req.parseBody();
     const file = data.file;

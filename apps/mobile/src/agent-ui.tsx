@@ -137,7 +137,7 @@ export function TaskCard({
             <Text style={s.heading}>{task.title}</Text>
             <Text style={s.small}>
               {statusLabel(task.status)}
-              {task.plan.length ? ` Â· ${done}/${task.plan.length} steps` : ""}
+              {task.plan.length ? ` · ${done}/${task.plan.length} steps` : ""}
             </Text>
           </View>
           <ChevronRight size={17} color={colors.muted} />
@@ -168,6 +168,89 @@ export function TaskCard({
     </Pressable>
   );
 }
+export function ActivityProgress() {
+  const { data, mutate } = useAgentWorkspace();
+  const { open } = useWorkspace();
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const notifications = (data?.notifications || []).filter((n) => !n.read && n.taskId);
+  const needsInput = (data?.tasks || []).filter(
+    (t) => t.status === "waiting_input" || t.status === "waiting_approval",
+  );
+  if (!notifications.length && !needsInput.length) return null;
+  async function dismiss(id: string) {
+    setBusyId(id);
+    try {
+      await mutate(`/notifications/${id}/read`, {});
+      setError("");
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusyId("");
+    }
+  }
+  return (
+    <View style={{ gap: 10, marginBottom: 12 }}>
+      <View style={[s.row, { gap: 8 }]}>
+        <ListChecks size={14} color={colors.blueDark} />
+        <Text style={s.label}>Progress</Text>
+      </View>
+      {needsInput.map((task) => (
+        <Pressable
+          key={task.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Open task needing attention: ${task.title}`}
+          onPress={() => open({ type: "task", taskId: task.id })}
+        >
+          <Card style={{ gap: 6, backgroundColor: colors.sky, padding: 14 }}>
+            <View style={s.between}>
+              <Text style={[s.small, { color: colors.blueDark, fontWeight: "600" }]}>
+                {task.status === "waiting_approval" ? "Review needed" : "Needs your input"}
+              </Text>
+              <Chip tint={colors.card}>{statusLabel(task.status)}</Chip>
+            </View>
+            <Text style={s.heading}>{task.title}</Text>
+            <Text numberOfLines={4} style={s.muted}>
+              {task.question || task.error || "Open this task to provide details, answer a question, or clear any doubt so work can continue."}
+            </Text>
+          </Card>
+        </Pressable>
+      ))}
+      {notifications.map((item) => (
+        <Card key={item.id} style={{ gap: 8, padding: 14 }}>
+          <View style={s.between}>
+            <Text style={[s.small, { color: colors.blueDark, fontWeight: "600" }]}>Topic update</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss update"
+              disabled={busyId === item.id}
+              onPress={() => void dismiss(item.id)}
+              hitSlop={8}
+            >
+              <X size={14} color={colors.muted} />
+            </Pressable>
+          </View>
+          <Text style={s.heading}>{item.title}</Text>
+          <Text numberOfLines={4} style={s.muted}>
+            {resultSummary(item.body)}
+          </Text>
+          <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
+            {item.taskId && (
+              <Button small icon={ArrowRight} onPress={() => open({ type: "task", taskId: item.taskId! })}>
+                View task
+              </Button>
+            )}
+            <Button small busy={busyId === item.id} onPress={() => void dismiss(item.id)}>
+              Dismiss
+            </Button>
+          </View>
+        </Card>
+      ))}
+      <ErrorNotice error={error} />
+    </View>
+  );
+}
+
 export function ChatWork() {
   const { data } = useAgentWorkspace();
   const tasks = [...(data?.tasks || [])]
@@ -202,6 +285,7 @@ export function AgentActivityScreen() {
           </Button>
         ))}
       </View>
+      {filter === "In progress" && <ActivityProgress />}
       {tasks.map((task) => (
         <TaskCard key={task.id} task={task} />
       ))}
@@ -394,7 +478,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
     <Sheet
       title={task?.title || "Task"}
       subtitle={
-        task ? `${statusLabel(task.status)} Â· ${stamp(task.updatedAt)}` : "Loading saved progressâ€¦"
+        task ? `${statusLabel(task.status)} · ${stamp(task.updatedAt)}` : "Loading saved progressâ€¦"
       }
       onClose={close}
     >
@@ -544,7 +628,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
                     <Text style={s.text}>{step.title}</Text>
                     <Text style={s.small}>
                       {statusLabel(step.status)}
-                      {step.detail ? ` Â· ${step.detail}` : ""}
+                      {step.detail ? ` · ${step.detail}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -598,7 +682,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
             <LinkRow
               key={file.id}
               title={file.name}
-              detail={`${file.pageCount} pages Â· PDF`}
+              detail={`${file.pageCount} pages · PDF`}
               icon={FileText}
               onPress={() => open({ type: "file", file })}
             />
@@ -623,7 +707,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
               style={{ gap: 4, paddingLeft: 14, borderLeftWidth: 2, borderLeftColor: colors.line }}
             >
               <Text style={s.small}>
-                {stamp(event.date)} Â· {statusLabel(event.kind)}
+                {stamp(event.date)} · {statusLabel(event.kind)}
               </Text>
               <Text style={s.text}>{event.title}</Text>
               <Text selectable style={s.muted}>
@@ -722,7 +806,7 @@ export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
                     {row
                       ? Object.entries(row)
                           .map(([name, val]) => `${name}: ${display(val)}`)
-                          .join(" Â· ")
+                          .join(" · ")
                       : display(item)}
                   </Text>
                 </View>
@@ -926,7 +1010,7 @@ function FinanceArtifact({ artifact }: { artifact: AgentArtifact }) {
                   <View style={{ flex: 1 }}>
                     <Text style={s.text}>{String(row.description)}</Text>
                     <Text style={s.small}>
-                      {String(row.date)} Â· {String(row.category)}
+                      {String(row.date)} · {String(row.category)}
                     </Text>
                   </View>
                   <Text style={s.text}>{amount(row.amount)}</Text>
@@ -999,7 +1083,7 @@ export function DelegateSheet({ goalId, milestoneId }: { goalId?: string; milest
       {milestoneId && (
         <Text style={[s.muted, { marginBottom: 16 }]}>
           {milestone
-            ? `${goal?.title} Â· ${milestone.title}. Mark this milestone complete when you are satisfied with the result.`
+            ? `${goal?.title} · ${milestone.title}. Mark this milestone complete when you are satisfied with the result.`
             : "This milestone is no longer available."}
         </Text>
       )}
@@ -1032,7 +1116,7 @@ export function DelegateSheet({ goalId, milestoneId }: { goalId?: string; milest
               <CheckRow
                 key={mail.id}
                 checked={mail.id === messageId}
-                label={`${mail.subject} Â· ${mail.sender}`}
+                label={`${mail.subject} · ${mail.sender}`}
                 onPress={() => setMessageId(mail.id)}
               />
             ))}
@@ -1096,7 +1180,12 @@ export function DelegateSheet({ goalId, milestoneId }: { goalId?: string; milest
 export function IdeasScreen() {
   const { data, mutate } = useAgentWorkspace();
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [title, setTitle] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [kind, setKind] = useState<AgentTask["kind"]>("agent");
   async function refreshIdeas() {
     setBusy(true);
     setError("");
@@ -1108,10 +1197,64 @@ export function IdeasScreen() {
       setBusy(false);
     }
   }
+  async function createIdea() {
+    setCreating(true);
+    setCreateError("");
+    try {
+      await mutate("/ideas", {
+        title: title.trim(),
+        prompt: prompt.trim(),
+        kind,
+      });
+      setTitle("");
+      setPrompt("");
+      setKind("agent");
+    } catch (e) {
+      setCreateError(errorText(e));
+    } finally {
+      setCreating(false);
+    }
+  }
   const ideas = data?.ideas.filter((idea) => idea.status === "new") || [];
+  const kinds: Array<{ id: AgentTask["kind"]; label: string }> = [
+    { id: "agent", label: "Task" },
+    { id: "document", label: "Document" },
+    { id: "plan", label: "Plan" },
+    { id: "monitor", label: "Monitor" },
+    { id: "finance", label: "Finance" },
+  ];
   return (
     <View style={{ gap: 20 }}>
       <AgentStatus />
+      <Card style={{ gap: 12 }}>
+        <Text style={s.heading}>Create your own idea</Text>
+        <Text style={s.muted}>Add an idea you want to explore or turn into a task later.</Text>
+        <Field label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Plan a weekend trip" />
+        <Field
+          label="What should be done?"
+          value={prompt}
+          onChangeText={setPrompt}
+          multiline
+          placeholder="Describe the idea or the task you want to start from it"
+        />
+        <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
+          {kinds.map((item) => (
+            <Button key={item.id} small primary={kind === item.id} onPress={() => setKind(item.id)}>
+              {item.label}
+            </Button>
+          ))}
+        </View>
+        <ErrorNotice error={createError} />
+        <Button
+          primary
+          icon={Plus}
+          busy={creating}
+          disabled={!title.trim() || !prompt.trim()}
+          onPress={() => void createIdea()}
+        >
+          Add idea
+        </Button>
+      </Card>
       <View style={s.between}>
         <Text style={s.small}>Inspired by your connected apps</Text>
         <Button small icon={RefreshCw} busy={busy} onPress={() => void refreshIdeas()}>
@@ -1126,7 +1269,7 @@ export function IdeasScreen() {
         <Empty
           icon={Lightbulb}
           title="Room for a good idea"
-          detail="Find ideas from the sources you have granted access to. Each suggestion includes its evidence."
+          detail="Create your own idea above or find ideas from the sources you have granted access to. Each suggestion includes its evidence."
         />
       )}
       {(data?.ideas || [])
@@ -1692,7 +1835,7 @@ function MonitorCard({ monitor, onOpenTask }: { monitor: Monitor; onOpenTask?: (
             : `Price below ${monitor.value}`}
       </Text>
       <Text style={s.small}>
-        Every {monitor.intervalMinutes} min Â· {monitor.checks} checks
+        Every {monitor.intervalMinutes} min · {monitor.checks} checks
       </Text>
       <Text style={s.small}>
         Last check: {stamp(monitor.lastCheckedAt)}

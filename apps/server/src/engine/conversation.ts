@@ -55,6 +55,52 @@ export class ConversationAgent extends AbstractAgent {
       return () => inner?.unsubscribe();
     });
   }
+  private textReply(input: RunAgentInput, content: string): Observable<BaseEvent> {
+    return new Observable((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      const id = randomUUID();
+      subscriber.next({ type: EventType.TEXT_MESSAGE_START, messageId: id, role: "assistant" });
+      subscriber.next({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: id, delta: content });
+      subscriber.next({ type: EventType.TEXT_MESSAGE_END, messageId: id });
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.complete();
+    });
+  }
+
+  private async handleSlashCommand(text: string): Promise<string | null> {
+    const q = text.trim();
+    if (/^\/clear$/i.test(q)) {
+      await this.service.db.remove(this.owner, "conversations", "default");
+      return "Cleared the saved conversation history for this chat.";
+    }
+    if (/^\/new$/i.test(q)) {
+      await this.service.db.remove(this.owner, "conversations", "default");
+      return "Started a new conversation.";
+    }
+    if (/^\/whoami$/i.test(q)) {
+      const identity = await this.service.db.get<{
+        name: string;
+        tone: string;
+        pov?: string;
+        avatar?: string;
+      }>(this.owner, "agent-settings", "identity");
+      const name = identity?.name?.trim() || "OpenFuse";
+      const tone = identity?.tone?.trim() || "warm";
+      const avatar = identity?.avatar?.trim() || "sky";
+      const pov = identity?.pov?.trim();
+      return `Name: ${name}\nTone: ${tone}\nAvatar: ${avatar}${pov ? `\nPoint of view: ${pov}` : ""}`;
+    }
+    return null;
+  }
+
   private async runInternal(
     input: RunAgentInput,
     choiceContinuation: boolean,
@@ -81,7 +127,9 @@ export class ConversationAgent extends AbstractAgent {
             const messages = input.messages.map((message) =>
               message === latest ? { ...message, content: selection.continuation } : message,
             );
-            subscription = (await this.runInternal({ ...input, messages }, true)).subscribe(subscriber);
+            subscription = (await this.runInternal({ ...input, messages }, true)).subscribe(
+              subscriber,
+            );
           } catch (error) {
             if (cancelled) return;
             subscriber.next({
@@ -96,6 +144,14 @@ export class ConversationAgent extends AbstractAgent {
           subscription?.unsubscribe();
         };
       });
+    const commandReply = await this.handleSlashCommand(latestText);
+    if (commandReply !== null)
+      return this.expireOnUserTurn(
+        this.textReply(input, commandReply),
+        jev,
+        input,
+        !choiceContinuation,
+      );
     if (this.config.agentBackend === "sample")
       return this.expireOnUserTurn(
         new Observable((subscriber) => {
@@ -487,10 +543,6 @@ export class ConversationAgent extends AbstractAgent {
   }
   private async sample(prompt: string, key: string) {
     const q = (prompt || "").trim();
-    if (/^\s*\/clear\s*$/i.test(q)) {
-      await this.service.db.remove(this.owner, "conversations", "default");
-      return { content: "Cleared the saved conversation history for this chat." };
-    }
     const identity = await this.service.db.get<{
       name: string;
       tone: string;

@@ -73,15 +73,15 @@ pnpm run typecheck
 - Images (agent avatar upload helpers): `POST /api/images`, `POST /api/images/from-url`, `GET /api/images/:id/content` (auth as implemented).
 - Identity (agent name/avatar/pov etc.): `GET /api/identity`, `POST /api/identity`.
 
-## Chat commands (agent identity)
+## Chat commands
 In chat (server-side handling):
-- Set name (examples the assistant understands):
-  - `set my name to Alice`
-  - `my name is Alice`
-  - `change your name to Alice`
-- Set avatar by URL/reference (stored as the `avatar` string):
-  - `/avatar https://example.com/pic.png`
-  - `set your avatar to https://example.com/pic.png`
+- Conversation:
+  - `/clear` — clear saved conversation history for this chat.
+  - `/new` — start a fresh conversation (clears saved conversation history).
+  - `/whoami` — show current agent name, tone, avatar, and point of view.
+- Identity:
+  - Set name (examples the assistant understands): `set my name to Alice`, `my name is Alice`, `change your name to Alice`
+  - Set avatar by URL/reference (stored as `avatar`): `/avatar https://example.com/pic.png` or `set your avatar to https://example.com/pic.png`
 - Device image uploads: use the app UI (chat ⚙ / Apps → Personality & memory) to upload via image endpoints, then apply the returned URL/reference if needed.
 
 ## Git / push policy (important)

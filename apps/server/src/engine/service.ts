@@ -610,7 +610,7 @@ export class AgentService {
         title: `I can help with ${mail.subject}`,
         reason: `${mail.sender} sent a document that may need your attention. I can prepare it and a reply for your review.`,
         evidence: [this.mailEvidence(mail)],
-        prompt: `Help complete the PDF from “${mail.subject}” and prepare a reply for review.`,
+        prompt: `Help complete the PDF from "${mail.subject}" and prepare a reply for review.`,
         kind: "document",
         input: { messageId: mail.id },
         status: "new",
@@ -630,7 +630,7 @@ export class AgentService {
         title: `I can help coordinate ${mail.subject}`,
         reason: `${mail.sender} mentioned getting together. I can check your calendar and prepare a response for review.`,
         evidence: [this.mailEvidence(mail)],
-        prompt: `Review the email “${mail.subject}”, check my calendar, and propose a next step. Ask me about missing preferences before preparing a reply.`,
+        prompt: `Review the email "${mail.subject}", check my calendar, and propose a next step. Ask me about missing preferences before preparing a reply.`,
         kind: "agent",
         input: { messageId: mail.id },
         status: "new",
@@ -655,6 +655,29 @@ export class AgentService {
     await this.ensure(owner);
     await this.db.compareAndSwap(owner, "agent-settings", "identity", {}, { lastIdeasAt: date() });
     return this.db.list<Idea>(owner, "ideas");
+  }
+  async createIdea(
+    owner: string,
+    input: {
+      title: string;
+      prompt: string;
+      reason?: string;
+      kind: AgentTask["kind"];
+    },
+  ) {
+    const idea: Idea = {
+      id: randomUUID(),
+      title: input.title,
+      reason: input.reason?.trim() || "Your idea.",
+      evidence: [{ id: randomUUID(), kind: "user", title: input.title, excerpt: input.prompt }],
+      prompt: input.prompt,
+      kind: input.kind,
+      input: {},
+      status: "new",
+      createdAt: date(),
+    };
+    await this.db.put(owner, "ideas", idea);
+    return idea;
   }
   async decideIdea(owner: string, id: string, action: "accept" | "dismiss", prompt?: string) {
     let idea = await this.db.get<Idea>(owner, "ideas", id);
