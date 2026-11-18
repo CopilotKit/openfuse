@@ -160,3 +160,23 @@ test("capacity exhaustion reclaims expired entries", () => {
   assert.equal(store.take("conn:d", 1500), true);
   assert.equal(store.size(), 1);
 });
+
+test("resolveClientKey trims X-Real-IP and ignores whitespace-only proxy headers", () => {
+  assert.equal(
+    resolveClientKey({
+      trustProxy: true,
+      realIp: " 203.0.113.5 ",
+      connectionAddress: "127.0.0.1",
+    }),
+    "proxy:203.0.113.5",
+  );
+  assert.equal(
+    resolveClientKey({
+      trustProxy: true,
+      forwardedFor: "   ",
+      realIp: "   ",
+      connectionAddress: "127.0.0.1",
+    }),
+    "conn:127.0.0.1",
+  );
+});

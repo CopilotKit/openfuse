@@ -54,7 +54,8 @@ export function resolveClientKey(input: {
   if (input.trustProxy) {
     const forwarded = input.forwardedFor?.split(",")[0]?.trim();
     if (forwarded) return `proxy:${forwarded}`;
-    if (input.realIp) return `proxy:${input.realIp}`;
+    const realIp = input.realIp?.trim();
+    if (realIp) return `proxy:${realIp}`;
   }
   return `conn:${input.connectionAddress ?? "unknown"}`;
 }
