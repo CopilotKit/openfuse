@@ -218,7 +218,12 @@ export class AgentService {
           ? ["Check the source", "Compare with the last observation", "Report a meaningful change"]
           : input.kind === "finance"
             ? ["Validate transactions", "Calculate the summary", "Save your tracker"]
-            : ["Understand the outcome", "Plan the work", "Use connected tools", "Return a result"];
+            : [
+                "Clarify request and success criteria",
+                "Gather evidence from connected sources/sites",
+                "Analyze findings and extract specifics",
+                "Report concrete results",
+              ];
     const task: AgentTask = {
       id,
       title: input.title ?? input.prompt.slice(0, 90),
@@ -898,7 +903,7 @@ export class AgentService {
   }
   async finish(task: AgentTask, context: TaskContext, result: string) {
     await context.guard();
-    await context.event("result", "Work completed", result);
+    await context.event("result", "Reported findings", result);
     return {
       status: "succeeded" as const,
       result,

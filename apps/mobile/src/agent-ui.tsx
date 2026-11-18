@@ -216,51 +216,65 @@ export function AgentActivityScreen() {
 export function EvidenceList({ items }: { items: Evidence[] }) {
   const { workspace, open } = useWorkspace();
   const [error, setError] = useState("");
+  const compact = (value: string, max = 140) => {
+    const text = value.replace(/\s+/g, " ").trim();
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  };
+  const host = (url?: string) => {
+    if (!url) return "";
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
   return (
     <View style={{ gap: 10 }}>
-      {items.map((item) => (
-        <View
-          key={item.id}
-          style={{ borderLeftWidth: 2, borderLeftColor: colors.blue, paddingLeft: 12, gap: 4 }}
-        >
-          <Text style={[s.small, { color: colors.text, fontWeight: "600" }]}>{item.title}</Text>
-          <Text selectable style={s.small}>
-            {item.excerpt}
-          </Text>
-          {item.url && /^https?:\/\//i.test(item.url) && (
-            <Button
-              small
-              onPress={() =>
-                void Linking.openURL(item.url || "").catch((e) => setError(errorText(e)))
-              }
-            >
-              Open source
-            </Button>
-          )}
-          {item.kind === "mail" && workspace.mail.some((mail) => mail.id === item.id) && (
-            <Button
-              small
-              onPress={() => {
-                const mail = workspace.mail.find((m) => m.id === item.id);
-                if (mail) open({ type: "mail", mail });
-              }}
-            >
-              View email
-            </Button>
-          )}
-          {item.kind === "file" && workspace.files.some((file) => file.id === item.id) && (
-            <Button
-              small
-              onPress={() => {
-                const file = workspace.files.find((f) => f.id === item.id);
-                if (file) open({ type: "file", file });
-              }}
-            >
-              View file
-            </Button>
-          )}
-        </View>
-      ))}
+      {items.map((item) => {
+        const site = item.url && /^https?:\/\//i.test(item.url) ? host(item.url) || item.url : "";
+        return (
+          <View
+            key={item.id}
+            style={{ borderLeftWidth: 2, borderLeftColor: colors.blue, paddingLeft: 12, gap: 4 }}
+          >
+            <Text style={[s.small, { color: colors.text, fontWeight: "600" }]}>{item.title}</Text>
+            {!!site && <Text style={s.small}>{site}</Text>}
+            {!!item.excerpt && <Text selectable style={s.small}>{compact(item.excerpt)}</Text>}
+            {item.url && /^https?:\/\//i.test(item.url) && (
+              <Button
+                small
+                onPress={() =>
+                  void Linking.openURL(item.url || "").catch((e) => setError(errorText(e)))
+                }
+              >
+                Open source
+              </Button>
+            )}
+            {item.kind === "mail" && workspace.mail.some((mail) => mail.id === item.id) && (
+              <Button
+                small
+                onPress={() => {
+                  const mail = workspace.mail.find((m) => m.id === item.id);
+                  if (mail) open({ type: "mail", mail });
+                }}
+              >
+                View email
+              </Button>
+            )}
+            {item.kind === "file" && workspace.files.some((file) => file.id === item.id) && (
+              <Button
+                small
+                onPress={() => {
+                  const file = workspace.files.find((f) => f.id === item.id);
+                  if (file) open({ type: "file", file });
+                }}
+              >
+                View file
+              </Button>
+            )}
+          </View>
+        );
+      })}
       <ErrorNotice error={error} />
     </View>
   );
@@ -639,6 +653,42 @@ export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
   const [expanded, setExpanded] = useState(false);
   if (artifact.kind === "finance") return <FinanceArtifact artifact={artifact} />;
   const rows = Object.entries(artifact.data);
+  const compact = (value: string, max = 140) => {
+    const text = value.replace(/\s+/g, " ").trim();
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  };
+  const host = (url?: string) => {
+    if (!url) return "";
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
+  const isEvidenceLike = (row: Record<string, unknown>) =>
+    ("kind" in row && "title" in row && ("url" in row || "excerpt" in row || "id" in row)) ||
+    ("url" in row && "excerpt" in row);
+  const renderEvidenceRow = (row: Record<string, unknown>, key: string) => {
+    const title = typeof row.title === "string" && row.title ? row.title : typeof row.url === "string" ? row.url : "";
+    const url = typeof row.url === "string" ? row.url : "";
+    const site = host(url) || url;
+    const excerpt = typeof row.excerpt === "string" ? compact(row.excerpt) : "";
+    const detail = [site, excerpt].filter(Boolean).join(" — ");
+    return (
+      <View
+        key={`${key}-${display(row.id ?? title ?? url)}`}
+        style={{
+          paddingVertical: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.line,
+          gap: 2,
+        }}
+      >
+        {!!title && <Text selectable style={s.text}>{compact(title, 120)}</Text>}
+        {!!detail && <Text selectable style={s.small}>{detail}</Text>}
+      </View>
+    );
+  };
   return (
     <Card style={{ gap: 13, backgroundColor: colors.card }}>
       <View style={s.between}>
@@ -654,6 +704,7 @@ export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
           {Array.isArray(value) ? (
             value.slice(0, expanded ? 100 : 5).map((item) => {
               const row = record(item);
+              if (row && isEvidenceLike(row)) return renderEvidenceRow(row, key);
               return (
                 <View
                   key={`${key}-${display(row?.id ?? item)}`}
@@ -674,14 +725,18 @@ export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
               );
             })
           ) : record(value) ? (
-            Object.entries(record(value) || {}).map(([name, val]) => (
-              <View key={name} style={s.between}>
-                <Text style={s.muted}>{name}</Text>
-                <Text selectable style={s.text}>
-                  {display(val)}
-                </Text>
-              </View>
-            ))
+            (() => {
+              const row = record(value)!;
+              if (isEvidenceLike(row)) return renderEvidenceRow(row, key);
+              return Object.entries(row).map(([name, val]) => (
+                <View key={name} style={s.between}>
+                  <Text style={s.muted}>{name}</Text>
+                  <Text selectable style={s.text}>
+                    {display(val)}
+                  </Text>
+                </View>
+              ));
+            })()
           ) : (
             <Text selectable style={[s.text, { fontSize: typeof value === "number" ? 24 : 14 }]}>
               {display(value)}
