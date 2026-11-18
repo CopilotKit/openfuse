@@ -401,12 +401,13 @@ export async function executeModelTask(
   });
   if (runError) throw new Error(runError);
   if (text) await ctx.event("step", "Agent update", text.slice(0, 12000));
-  return (
-    outcome ?? {
-      status: "waiting_input",
-      question:
-        "The agent reached the end of this run without confirming completion. Give it a follow-up instruction to continue.",
-      state: { ...task.state, lastUpdate: text },
-    }
-  );
+  if (outcome) return outcome;
+  const summary = text.trim() || "Completed.";
+  await ctx.event("result", "Work completed", summary.slice(0, 12000));
+  return {
+    status: "succeeded" as const,
+    result: summary.slice(0, 8000),
+    state: { ...task.state, lastUpdate: text },
+    plan: task.plan.map((s) => ({ ...s, status: "succeeded" as const })),
+  };
 }
