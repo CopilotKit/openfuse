@@ -241,8 +241,9 @@ export async function createApp(
     c.json((await db.get(c.get("owner"), "conversations", "default")) ?? { messages: [] }),
   );
   app.put("/api/conversation", async (c) => {
-    const body = await c.req.json();
-    const messages = z.array(z.unknown()).max(1000).parse(body.messages);
+    const { messages } = z
+      .object({ messages: z.array(z.unknown()).max(1000) })
+      .parse(await c.req.json());
     for (const message of messages) MessageSchema.parse(message);
     await db.put(c.get("owner"), "conversations", { id: "default", messages });
     return c.json({ ok: true });
