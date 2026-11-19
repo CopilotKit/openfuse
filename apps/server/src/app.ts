@@ -24,6 +24,7 @@ import { AgentService } from "./engine/service.ts";
 import { AppError } from "./errors.ts";
 import { Files } from "./files.ts";
 import { GoogleAuth } from "./google-auth.ts";
+import { Images } from "./images.ts";
 import { rateLimit } from "./rate-limit.ts";
 import { WorkspaceService } from "./workspace.ts";
 
@@ -36,6 +37,7 @@ export async function createApp(
   await resolveComputerDeployment(config);
   const auth = await createAuth(db, config),
     files = new Files(db, config, auth),
+    images = new Images(db, config, auth),
     google = new GoogleAuth(db, config),
     workspace = new WorkspaceService(db, config, files, google);
   const actions = new ActionService(db, {
@@ -73,7 +75,7 @@ export async function createApp(
     "*",
     bodyLimit({
       maxSize: 12 * 1024 * 1024,
-      onError: (c) => c.json({ error: "Request is too large; PDFs must be 10 MB or smaller" }, 413),
+      onError: (c) => c.json({ error: "Request is too large; files must be 10 MB or smaller" }, 413),
     }),
   );
   app.use("/api/*", rateLimit(Boolean(config.trustProxy)));
@@ -247,23 +249,47 @@ export async function createApp(
     await db.put(c.get("owner"), "conversations", { id: "default", messages });
     return c.json({ ok: true });
   });
+  app.delete("/api/conversation", async (c) => {
+    await db.remove(c.get("owner"), "conversations", "default");
+    return c.json({ ok: true });
+  });
   app.post("/api/files", async (c) => {
     const data = await c.req.parseBody();
     const file = data.file;
-    if (!(file instanceof File)) throw new AppError("Choose a PDF file");
+    if (!(file instanceof File)) throw new AppError("Choose a file");
     return c.json(
       await files.import(
         c.get("owner"),
         file.name,
         new Uint8Array(await file.arrayBuffer()),
+        file.type || "application/octet-stream",
         "Uploaded by you",
       ),
       201,
     );
   });
+  app.post("/api/images", async (c) => {
+    const data = await c.req.parseBody();
+    const file = data.file;
+    if (!(file instanceof File)) throw new AppError("Choose an image file");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const image = await images.import(c.get("owner"), file.name, bytes, "Uploaded by you");
+    return c.json(image, 201);
+  });
+  app.get("/api/images/:id/content", async (c) => {
+    const image = await images.get(c.get("owner"), c.req.param("id"));
+    c.header("Content-Type", "image/png");
+    c.header("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(image.name)}`);
+    return c.body(await images.bytes(c.get("owner"), image.id));
+  });
+  app.post("/api/images/from-url", async (c) => {
+    const body = z.object({ url: z.url().max(4096) }).parse(await c.req.json());
+    const image = await images.importFromUrl(c.get("owner"), body.url, "Imported from URL");
+    return c.json(image, 201);
+  });
   app.get("/api/files/:id/content", async (c) => {
     const file = await files.get(c.get("owner"), c.req.param("id"));
-    c.header("Content-Type", "application/pdf");
+    c.header("Content-Type", file.mimeType || "application/octet-stream");
     c.header("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`);
     return c.body(await files.bytes(c.get("owner"), file.id));
   });
@@ -272,6 +298,10 @@ export async function createApp(
       .object({ fields: z.record(z.string(), z.union([z.string(), z.boolean()])) })
       .parse(await c.req.json());
     return c.json(await files.fill(c.get("owner"), c.req.param("id"), body.fields), 201);
+  });
+  app.delete("/api/files/:id", async (c) => {
+    await files.delete(c.get("owner"), c.req.param("id"));
+    return c.json({ ok: true });
   });
   app.post("/api/mail/import-attachment", async (c) => {
     const body = z.object({ reference: z.string() }).parse(await c.req.json());

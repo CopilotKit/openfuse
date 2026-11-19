@@ -7,7 +7,18 @@ import {
   useRenderTool,
   useRenderToolCall,
 } from "@copilotkit/react-native/headless";
-import { ArrowDown, ArrowUp, FileText, RotateCcw, Square, X } from "lucide-react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import {
+  ArrowDown,
+  ArrowUp,
+  FileText,
+  RotateCcw,
+  Settings2,
+  Square,
+  Upload,
+  X,
+} from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Keyboard,
@@ -24,7 +35,6 @@ import { z } from "zod";
 import { ArtifactCard } from "./agent-ui";
 import { useAgentWorkspace } from "./agent-workspace";
 import { AssistantResponse } from "./assistant-response";
-import { BackgroundUpdates } from "./background-updates";
 import { BrowserRunContext, BrowserToolCard } from "./browser-tool-card";
 import { BrowserThreadCard } from "./computer";
 import { ConversationQueue, type QueuedMessage } from "./conversation-queue";
@@ -212,9 +222,9 @@ export function ChatScreen({
   thread?: Selection;
   active?: boolean;
 }) {
-  const { api, workspace: w, refresh, navigate } = useWorkspace();
+  const { api, workspace: w, refresh, navigate, open } = useWorkspace();
   const { data: agentWorkspace, refresh: refreshAgent } = useAgentWorkspace();
-  const { enabled: richThreads, mainId, claimPrompt } = useFuseThread();
+  const { enabled: richThreads, mainId, claimPrompt, start, select } = useFuseThread();
   const selection = thread || { id: "local", existing: false };
   const threadId = richThreads ? selection.id : "local-main";
   const agentId = `openfuse-${threadId}`;
@@ -228,10 +238,11 @@ export function ChatScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
-  // Replayed messages show before connectAgent returns; new turns wait until it does.
   const [syncing, setSyncing] = useState(false);
   const [picking, setPicking] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const list = useRef<ScrollView>(null);
   const [queue] = useState(() => new ConversationQueue());
   const choiceCompletions = useRef(
@@ -321,6 +332,44 @@ export function ChatScreen({
     if (!richThreads) await api.request("/api/conversation", { messages: agent.messages }, "PUT");
     setSaveError("");
   }, [agent, api, richThreads]);
+  async function uploadFromChat() {
+    setUploadError("");
+    setUploading(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const file = result.assets[0];
+      let artifact: { id: string };
+      if (Platform.OS === "web") {
+        const form = new FormData();
+        if (!file.file)
+          throw new Error("The selected file could not be read. Please choose it again.");
+        form.append("file", file.file, file.name);
+        artifact = await api.request("/api/files", form);
+      } else {
+        const res = await FileSystem.uploadAsync(api.url("/api/files"), file.uri, {
+          httpMethod: "POST",
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: "file",
+          mimeType: file.mimeType || "application/octet-stream",
+          headers: { Authorization: `Bearer ${api.token}` },
+        });
+        const payload = JSON.parse(res.body);
+        if (res.status < 200 || res.status >= 300)
+          throw new Error(payload.error || "Could not import this file.");
+        artifact = payload;
+      }
+      await refresh();
+      setAttachments((ids) => [...ids, artifact.id]);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+    }
+  }
   /** Runs one turn; "held" means a queued message was refused by a lock and put back on hold. */
   const run = useCallback(
     async (message?: QueuedMessage): Promise<"held" | undefined> => {
@@ -454,9 +503,190 @@ export function ChatScreen({
       setError(`Could not stop response: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+  function addLocalReply(command: string, text: string) {
+    const now = Date.now();
+    agent.addMessage({ id: `cmd-${now}`, role: "user", content: command } as Message);
+    agent.addMessage({ id: `cmdr-${now}`, role: "assistant", content: text } as Message);
+    setError("");
+    setHistoryError("");
+    followLatest.current = true;
+    setAwayFromLatest(false);
+    if (!richThreads) void saveHistory().catch(() => {});
+  }
+  async function forgetMemory(raw: string) {
+    const query = raw.trim();
+    const memories = agentWorkspace?.memories || [];
+    if (!query) {
+      addLocalReply(
+        raw || "/forget",
+        [
+          "Forget removes a saved memory so the agent should not remember it (chat history is not changed).",
+          "Usage: /forget <memory text or keyword>",
+          memories.length
+            ? `Saved memories: ${memories.length}. You can also review and forget specific memories in Apps → Personality & memory.`
+            : "No saved memories found. You can add/review memories in Apps → Personality & memory.",
+        ].join("\n"),
+      );
+      return;
+    }
+    const needle = query.toLowerCase();
+    const matches = memories.filter((m) => (m.text || "").toLowerCase().includes(needle));
+    if (!matches.length) {
+      addLocalReply(`/forget ${query}`, `No saved memory matched "${query}". Open Apps → Personality & memory to review memories.`);
+      return;
+    }
+    if (matches.length > 1) {
+      const preview = matches
+        .slice(0, 5)
+        .map((m, i) => `${i + 1}. ${String(m.text || "").slice(0, 80)}`)
+        .join("\n");
+      addLocalReply(
+        `/forget ${query}`,
+        `Multiple memories matched "${query}". Be more specific.\n${preview}`,
+      );
+      return;
+    }
+    const target = matches[0];
+    try {
+      await api.request(`/memories/${target.id}/forget`, {}, "POST");
+      await refreshAgent();
+      addLocalReply(`/forget ${query}`, `Forgot memory: "${target.text}"\nThis removes it from saved memory (not from chat history).`);
+    } catch (e) {
+      setError(`Could not forget memory: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  function handleSlashCommand(raw: string): boolean {
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith("/")) return false;
+    const [head, ...rest] = trimmed.split(/\s+/);
+    const cmd = head.toLowerCase();
+    const arg = rest.join(" ").trim();
+    const replyingNow = busy || agent.isRunning || syncing;
+    const clearDraft = () => {
+      setDraft("");
+      setInputHeight(44);
+      setAttachments([]);
+      setPicking(false);
+      setUploadError("");
+    };
+    if (cmd === "/stop") {
+      clearDraft();
+      if (replyingNow) void stop();
+      else addLocalReply(trimmed, "No active reply to stop.");
+      return true;
+    }
+    if (cmd === "/help" || cmd === "/commands") {
+      clearDraft();
+      addLocalReply(
+        trimmed,
+        [
+          "Available commands:",
+          "• /new, /reset — start a fresh chat (new side chat in rich threads)",
+          "• /clear, /delete, /deletechat — delete this chat's conversation history (does not remove saved memories)",
+          "• /stop — stop the current reply",
+          "• /status — show chat/session status",
+          "• /whoami, /id — show your and agent profile info",
+          "• /forget <text> — forget a matching saved memory (erases from memory, not chat history)",
+          "• /help, /commands — show this help",
+          "",
+          "Delete types: (1) Delete chat history = remove conversation messages/history. (2) Forget memory = erase saved memory the agent should not remember.",
+          "Tip: use Threads for deleting/removing side chats, and Apps → Personality & memory to review/forget memories.",
+        ].join("\n"),
+      );
+      return true;
+    }
+    if (cmd === "/new" || cmd === "/reset") {
+      clearDraft();
+      if (replyingNow) {
+        setError("Stop the current reply before starting a new chat.");
+        return true;
+      }
+      if (saveError) {
+        setError("Save or resolve the conversation save issue before starting a new chat.");
+        return true;
+      }
+      queue.clear();
+      if (richThreads) start();
+      else {
+        agent.setMessages([]);
+        void saveHistory().catch(() => {});
+        setHistoryError("");
+        setLoaded(true);
+      }
+      setError("");
+      setShowResults(false);
+      return true;
+    }
+    if (cmd === "/clear" || cmd === "/delete" || cmd === "/deletechat") {
+      clearDraft();
+      if (replyingNow) {
+        setError("Stop the current reply before deleting chat history.");
+        return true;
+      }
+      if (saveError) {
+        setError("Save or resolve the conversation save issue before deleting chat history.");
+        return true;
+      }
+      agent.setMessages([]);
+      queue.clear();
+      if (!richThreads) void saveHistory().catch(() => {});
+      setHistoryError("");
+      setLoaded(true);
+      setError("");
+      setShowResults(false);
+      addLocalReply(trimmed, "Chat history deleted for this conversation. Saved memories were not changed.");
+      return true;
+    }
+    if (cmd === "/status") {
+      clearDraft();
+      const agentName = agentWorkspace?.identity?.name || "OpenFuse";
+      const lines = [
+        `Agent: ${agentName}`,
+        `Mode: ${(w as { mode?: string }).mode ?? "unknown"}`,
+        `Agent ready: ${isReady ? "yes" : "no"} · loaded: ${loaded ? "yes" : "no"} · syncing: ${syncing ? "yes" : "no"} · busy: ${replyingNow ? "yes" : "no"}`,
+        `Thread: ${richThreads ? selection.id : "local"}${richThreads && selection.id === mainId ? " (main)" : ""}`,
+        `Rich threads: ${richThreads ? "enabled" : "disabled"}`,
+        `Queued: ${outbox.pending.length}${outbox.paused ? " (paused)" : ""}`,
+        `Messages: ${(agent.messages || []).length}`,
+        `Memories: ${(agentWorkspace?.memories || []).length}`,
+      ];
+      addLocalReply(trimmed, lines.join("\n"));
+      return true;
+    }
+    if (cmd === "/whoami" || cmd === "/id") {
+      clearDraft();
+      const profile = (w as { profile?: { name?: string; displayName?: string; id?: string }; mode?: string; runtime?: { agentConfigured?: boolean } }).profile || {};
+      const name = profile.name || profile.displayName || "local-user";
+      const mode = (w as { mode?: string }).mode ?? "unknown";
+      const agentName = agentWorkspace?.identity?.name || "OpenFuse";
+      addLocalReply(
+        trimmed,
+        [
+          `User: ${name}`,
+          `Agent: ${agentName}`,
+          `Mode: ${mode}`,
+          profile.id ? `ID: ${profile.id}` : undefined,
+          (w as { runtime?: { agentConfigured?: boolean } }).runtime?.agentConfigured != null
+            ? `Agent configured: ${(w as { runtime?: { agentConfigured?: boolean } }).runtime?.agentConfigured ? "yes" : "no"}`
+            : undefined,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+      return true;
+    }
+    if (cmd === "/forget") {
+      clearDraft();
+      void forgetMemory(arg);
+      return true;
+    }
+    return false;
+  }
   function send() {
     const text = draft.trim();
-    if (!text || !isReady || !loaded) return;
+    if (!text) return;
+    if (handleSlashCommand(text)) return;
+    if (!isReady || !loaded) return;
     // A new submission can continue after Stop; held follow-ups still need explicit resume.
     if (!busy && !agent.isRunning && !saveError && !queue.getSnapshot().pending.length)
       queue.resume();
@@ -706,7 +936,6 @@ export function ChatScreen({
             )}
           </>
         )}
-        {(!richThreads || selection.id === mainId) && <BackgroundUpdates />}
         {(busy || agent.isRunning) && (
           <View
             accessibilityLabel="Agent is working"
@@ -827,7 +1056,22 @@ export function ChatScreen({
         )}
         {picking && (
           <Card style={{ marginBottom: 12, padding: 15 }}>
-            <Text style={s.heading}>Add a document</Text>
+            <View
+              style={[
+                s.row,
+                { justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+              ]}
+            >
+              <Text style={s.heading}>Add a document</Text>
+              <Button small icon={Upload} busy={uploading} onPress={() => void uploadFromChat()}>
+                Import file
+              </Button>
+            </View>
+            <Text style={[s.muted, { marginBottom: 8 }]}>
+              Pick existing files or import new ones (PDF, images, Word, PowerPoint, text). Max 10
+              MB.
+            </Text>
+            {!!uploadError && <ErrorNotice error={uploadError} />}
             <ScrollView style={{ maxHeight: 230 }} keyboardShouldPersistTaps="handled">
               {w.files.length ? (
                 w.files.map((f) => (
@@ -845,7 +1089,7 @@ export function ChatScreen({
                   />
                 ))
               ) : (
-                <Text style={s.muted}>Import a PDF in Files to use it in a conversation.</Text>
+                <Text style={s.muted}>No documents yet. Tap “Import file” above.</Text>
               )}
             </ScrollView>
             <Button
@@ -923,6 +1167,21 @@ export function ChatScreen({
               <Text style={{ color: colors.text, fontSize: 29, fontWeight: "300", lineHeight: 32 }}>
                 +
               </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Agent settings, name, image and memory"
+              onPress={() => open({ type: "agent-settings" })}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 24,
+                backgroundColor: pressed ? colors.sky : "transparent",
+              })}
+            >
+              <Settings2 size={22} color={colors.text} strokeWidth={1.8} />
             </Pressable>
             <TextInput
               accessibilityLabel="Message OpenFuse"

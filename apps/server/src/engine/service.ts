@@ -131,6 +131,9 @@ export class AgentService {
       id: "identity",
       name: "OpenFuse",
       tone: "warm",
+      avatar: "sky",
+      pov: "",
+      showChatUpdates: true,
     });
   }
   async snapshot(owner: string): Promise<AgentWorkspace> {
@@ -155,7 +158,13 @@ export class AgentService {
       memories,
       artifacts,
       notifications,
-      identity: identity ?? { name: "OpenFuse", tone: "warm" },
+      identity: {
+        name: identity?.name ?? "OpenFuse",
+        tone: identity?.tone ?? "warm",
+        avatar: identity?.avatar ?? "sky",
+        pov: identity?.pov ?? "",
+        showChatUpdates: identity?.showChatUpdates !== false,
+      },
       worker: {
         running:
           this.worker.running ||
@@ -218,7 +227,12 @@ export class AgentService {
           ? ["Check the source", "Compare with the last observation", "Report a meaningful change"]
           : input.kind === "finance"
             ? ["Validate transactions", "Calculate the summary", "Save your tracker"]
-            : ["Understand the outcome", "Plan the work", "Use connected tools", "Return a result"];
+            : [
+                "Clarify request and success criteria",
+                "Gather evidence from connected sources/sites",
+                "Analyze findings and extract specifics",
+                "Report concrete results",
+              ];
     const task: AgentTask = {
       id,
       title: input.title ?? input.prompt.slice(0, 90),
@@ -596,7 +610,7 @@ export class AgentService {
         title: `I can help with ${mail.subject}`,
         reason: `${mail.sender} sent a document that may need your attention. I can prepare it and a reply for your review.`,
         evidence: [this.mailEvidence(mail)],
-        prompt: `Help complete the PDF from “${mail.subject}” and prepare a reply for review.`,
+        prompt: `Help complete the PDF from "${mail.subject}" and prepare a reply for review.`,
         kind: "document",
         input: { messageId: mail.id },
         status: "new",
@@ -616,7 +630,7 @@ export class AgentService {
         title: `I can help coordinate ${mail.subject}`,
         reason: `${mail.sender} mentioned getting together. I can check your calendar and prepare a response for review.`,
         evidence: [this.mailEvidence(mail)],
-        prompt: `Review the email “${mail.subject}”, check my calendar, and propose a next step. Ask me about missing preferences before preparing a reply.`,
+        prompt: `Review the email "${mail.subject}", check my calendar, and propose a next step. Ask me about missing preferences before preparing a reply.`,
         kind: "agent",
         input: { messageId: mail.id },
         status: "new",
@@ -641,6 +655,29 @@ export class AgentService {
     await this.ensure(owner);
     await this.db.compareAndSwap(owner, "agent-settings", "identity", {}, { lastIdeasAt: date() });
     return this.db.list<Idea>(owner, "ideas");
+  }
+  async createIdea(
+    owner: string,
+    input: {
+      title: string;
+      prompt: string;
+      reason?: string;
+      kind: AgentTask["kind"];
+    },
+  ) {
+    const idea: Idea = {
+      id: randomUUID(),
+      title: input.title,
+      reason: input.reason?.trim() || "Your idea.",
+      evidence: [{ id: randomUUID(), kind: "user", title: input.title, excerpt: input.prompt }],
+      prompt: input.prompt,
+      kind: input.kind,
+      input: {},
+      status: "new",
+      createdAt: date(),
+    };
+    await this.db.put(owner, "ideas", idea);
+    return idea;
   }
   async decideIdea(owner: string, id: string, action: "accept" | "dismiss", prompt?: string) {
     let idea = await this.db.get<Idea>(owner, "ideas", id);
@@ -898,7 +935,7 @@ export class AgentService {
   }
   async finish(task: AgentTask, context: TaskContext, result: string) {
     await context.guard();
-    await context.event("result", "Work completed", result);
+    await context.event("result", "Reported findings", result);
     return {
       status: "succeeded" as const,
       result,

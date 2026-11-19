@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowRight,
   Bell,
   CalendarDays,
@@ -7,6 +7,7 @@ import {
   FileText,
   Globe2,
   Heart,
+  ImagePlus,
   Lightbulb,
   ListChecks,
   Mail,
@@ -16,11 +17,14 @@ import {
   RefreshCw,
   Square,
   Target,
+  Trash2,
   Users,
   X,
 } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Linking, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Platform, Pressable, Text, View } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import type { Artifact, BrowserSession } from "../../../packages/domain/src";
 import type {
@@ -55,6 +59,17 @@ import { useWorkspace } from "./workspace";
 
 export function statusLabel(value: string) {
   return value.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+function ideaEmoji(title: string) {
+  return /document|permission|form/i.test(title)
+    ? "📋"
+    : /money|spend|saving/i.test(title)
+      ? "💸"
+      : /goal|plan|training/i.test(title)
+        ? "👟"
+        : /dinner|table/i.test(title)
+          ? "🍽️"
+          : "💡";
 }
 function stamp(value?: string) {
   return value
@@ -164,6 +179,89 @@ export function TaskCard({
     </Pressable>
   );
 }
+export function ActivityProgress() {
+  const { data, mutate } = useAgentWorkspace();
+  const { open } = useWorkspace();
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState("");
+  const notifications = (data?.notifications || []).filter((n) => !n.read && n.taskId);
+  const needsInput = (data?.tasks || []).filter(
+    (t) => t.status === "waiting_input" || t.status === "waiting_approval",
+  );
+  if (!notifications.length && !needsInput.length) return null;
+  async function dismiss(id: string) {
+    setBusyId(id);
+    try {
+      await mutate(`/notifications/${id}/read`, {});
+      setError("");
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusyId("");
+    }
+  }
+  return (
+    <View style={{ gap: 10, marginBottom: 12 }}>
+      <View style={[s.row, { gap: 8 }]}>
+        <ListChecks size={14} color={colors.blueDark} />
+        <Text style={s.label}>Progress</Text>
+      </View>
+      {needsInput.map((task) => (
+        <Pressable
+          key={task.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Open task needing attention: ${task.title}`}
+          onPress={() => open({ type: "task", taskId: task.id })}
+        >
+          <Card style={{ gap: 6, backgroundColor: colors.sky, padding: 14 }}>
+            <View style={s.between}>
+              <Text style={[s.small, { color: colors.blueDark, fontWeight: "600" }]}>
+                {task.status === "waiting_approval" ? "Review needed" : "Needs your input"}
+              </Text>
+              <Chip tint={colors.card}>{statusLabel(task.status)}</Chip>
+            </View>
+            <Text style={s.heading}>{task.title}</Text>
+            <Text numberOfLines={4} style={s.muted}>
+              {task.question || task.error || "Open this task to provide details, answer a question, or clear any doubt so work can continue."}
+            </Text>
+          </Card>
+        </Pressable>
+      ))}
+      {notifications.map((item) => (
+        <Card key={item.id} style={{ gap: 8, padding: 14 }}>
+          <View style={s.between}>
+            <Text style={[s.small, { color: colors.blueDark, fontWeight: "600" }]}>Topic update</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss update"
+              disabled={busyId === item.id}
+              onPress={() => void dismiss(item.id)}
+              hitSlop={8}
+            >
+              <X size={14} color={colors.muted} />
+            </Pressable>
+          </View>
+          <Text style={s.heading}>{item.title}</Text>
+          <Text numberOfLines={4} style={s.muted}>
+            {resultSummary(item.body)}
+          </Text>
+          <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
+            {item.taskId && (
+              <Button small icon={ArrowRight} onPress={() => open({ type: "task", taskId: item.taskId! })}>
+                View task
+              </Button>
+            )}
+            <Button small busy={busyId === item.id} onPress={() => void dismiss(item.id)}>
+              Dismiss
+            </Button>
+          </View>
+        </Card>
+      ))}
+      <ErrorNotice error={error} />
+    </View>
+  );
+}
+
 export function ChatWork() {
   const { data } = useAgentWorkspace();
   const tasks = [...(data?.tasks || [])]
@@ -198,6 +296,7 @@ export function AgentActivityScreen() {
           </Button>
         ))}
       </View>
+      {filter === "In progress" && <ActivityProgress />}
       {tasks.map((task) => (
         <TaskCard key={task.id} task={task} />
       ))}
@@ -216,51 +315,65 @@ export function AgentActivityScreen() {
 export function EvidenceList({ items }: { items: Evidence[] }) {
   const { workspace, open } = useWorkspace();
   const [error, setError] = useState("");
+  const compact = (value: string, max = 140) => {
+    const text = value.replace(/\s+/g, " ").trim();
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  };
+  const host = (url?: string) => {
+    if (!url) return "";
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
   return (
     <View style={{ gap: 10 }}>
-      {items.map((item) => (
-        <View
-          key={item.id}
-          style={{ borderLeftWidth: 2, borderLeftColor: colors.blue, paddingLeft: 12, gap: 4 }}
-        >
-          <Text style={[s.small, { color: colors.text, fontWeight: "600" }]}>{item.title}</Text>
-          <Text selectable style={s.small}>
-            {item.excerpt}
-          </Text>
-          {item.url && /^https?:\/\//i.test(item.url) && (
-            <Button
-              small
-              onPress={() =>
-                void Linking.openURL(item.url || "").catch((e) => setError(errorText(e)))
-              }
-            >
-              Open source
-            </Button>
-          )}
-          {item.kind === "mail" && workspace.mail.some((mail) => mail.id === item.id) && (
-            <Button
-              small
-              onPress={() => {
-                const mail = workspace.mail.find((m) => m.id === item.id);
-                if (mail) open({ type: "mail", mail });
-              }}
-            >
-              View email
-            </Button>
-          )}
-          {item.kind === "file" && workspace.files.some((file) => file.id === item.id) && (
-            <Button
-              small
-              onPress={() => {
-                const file = workspace.files.find((f) => f.id === item.id);
-                if (file) open({ type: "file", file });
-              }}
-            >
-              View file
-            </Button>
-          )}
-        </View>
-      ))}
+      {items.map((item) => {
+        const site = item.url && /^https?:\/\//i.test(item.url) ? host(item.url) || item.url : "";
+        return (
+          <View
+            key={item.id}
+            style={{ borderLeftWidth: 2, borderLeftColor: colors.blue, paddingLeft: 12, gap: 4 }}
+          >
+            <Text style={[s.small, { color: colors.text, fontWeight: "600" }]}>{item.title}</Text>
+            {!!site && <Text style={s.small}>{site}</Text>}
+            {!!item.excerpt && <Text selectable style={s.small}>{compact(item.excerpt)}</Text>}
+            {item.url && /^https?:\/\//i.test(item.url) && (
+              <Button
+                small
+                onPress={() =>
+                  void Linking.openURL(item.url || "").catch((e) => setError(errorText(e)))
+                }
+              >
+                Open source
+              </Button>
+            )}
+            {item.kind === "mail" && workspace.mail.some((mail) => mail.id === item.id) && (
+              <Button
+                small
+                onPress={() => {
+                  const mail = workspace.mail.find((m) => m.id === item.id);
+                  if (mail) open({ type: "mail", mail });
+                }}
+              >
+                View email
+              </Button>
+            )}
+            {item.kind === "file" && workspace.files.some((file) => file.id === item.id) && (
+              <Button
+                small
+                onPress={() => {
+                  const file = workspace.files.find((f) => f.id === item.id);
+                  if (file) open({ type: "file", file });
+                }}
+              >
+                View file
+              </Button>
+            )}
+          </View>
+        );
+      })}
       <ErrorNotice error={error} />
     </View>
   );
@@ -376,7 +489,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
     <Sheet
       title={task?.title || "Task"}
       subtitle={
-        task ? `${statusLabel(task.status)} · ${stamp(task.updatedAt)}` : "Loading saved progress…"
+        task ? `${statusLabel(task.status)} · ${stamp(task.updatedAt)}` : "Loading saved progressâ€¦"
       }
       onClose={close}
     >
@@ -479,7 +592,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
                   value={answer}
                   onChangeText={setAnswer}
                   multiline
-                  placeholder="Add the missing details…"
+                  placeholder="Add the missing detailsâ€¦"
                 />
               )}
               {task.kind === "document" && !fieldNames.length && (
@@ -520,7 +633,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
                       { color: step.status === "succeeded" ? colors.blueDark : colors.muted },
                     ]}
                   >
-                    {step.status === "succeeded" ? "✓" : `${index + 1}.`}
+                    {step.status === "succeeded" ? "âœ“" : `${index + 1}.`}
                   </Text>
                   <View style={{ flex: 1, gap: 3 }}>
                     <Text style={s.text}>{step.title}</Text>
@@ -632,13 +745,49 @@ function display(value: unknown): string {
     : typeof value === "number" || typeof value === "boolean"
       ? String(value)
       : value === null
-        ? "—"
+        ? "â€”"
         : JSON.stringify(value, null, 2) || "";
 }
 export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
   const [expanded, setExpanded] = useState(false);
   if (artifact.kind === "finance") return <FinanceArtifact artifact={artifact} />;
   const rows = Object.entries(artifact.data);
+  const compact = (value: string, max = 140) => {
+    const text = value.replace(/\s+/g, " ").trim();
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  };
+  const host = (url?: string) => {
+    if (!url) return "";
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  };
+  const isEvidenceLike = (row: Record<string, unknown>) =>
+    ("kind" in row && "title" in row && ("url" in row || "excerpt" in row || "id" in row)) ||
+    ("url" in row && "excerpt" in row);
+  const renderEvidenceRow = (row: Record<string, unknown>, key: string) => {
+    const title = typeof row.title === "string" && row.title ? row.title : typeof row.url === "string" ? row.url : "";
+    const url = typeof row.url === "string" ? row.url : "";
+    const site = host(url) || url;
+    const excerpt = typeof row.excerpt === "string" ? compact(row.excerpt) : "";
+    const detail = [site, excerpt].filter(Boolean).join(" — ");
+    return (
+      <View
+        key={`${key}-${display(row.id ?? title ?? url)}`}
+        style={{
+          paddingVertical: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.line,
+          gap: 2,
+        }}
+      >
+        {!!title && <Text selectable style={s.text}>{compact(title, 120)}</Text>}
+        {!!detail && <Text selectable style={s.small}>{detail}</Text>}
+      </View>
+    );
+  };
   return (
     <Card style={{ gap: 13, backgroundColor: colors.card }}>
       <View style={s.between}>
@@ -654,6 +803,7 @@ export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
           {Array.isArray(value) ? (
             value.slice(0, expanded ? 100 : 5).map((item) => {
               const row = record(item);
+              if (row && isEvidenceLike(row)) return renderEvidenceRow(row, key);
               return (
                 <View
                   key={`${key}-${display(row?.id ?? item)}`}
@@ -674,14 +824,18 @@ export function ArtifactCard({ artifact }: { artifact: AgentArtifact }) {
               );
             })
           ) : record(value) ? (
-            Object.entries(record(value) || {}).map(([name, val]) => (
-              <View key={name} style={s.between}>
-                <Text style={s.muted}>{name}</Text>
-                <Text selectable style={s.text}>
-                  {display(val)}
-                </Text>
-              </View>
-            ))
+            (() => {
+              const row = record(value)!;
+              if (isEvidenceLike(row)) return renderEvidenceRow(row, key);
+              return Object.entries(row).map(([name, val]) => (
+                <View key={name} style={s.between}>
+                  <Text style={s.muted}>{name}</Text>
+                  <Text selectable style={s.text}>
+                    {display(val)}
+                  </Text>
+                </View>
+              ));
+            })()
           ) : (
             <Text selectable style={[s.text, { fontSize: typeof value === "number" ? 24 : 14 }]}>
               {display(value)}
@@ -762,7 +916,7 @@ function FinanceArtifact({ artifact }: { artifact: AgentArtifact }) {
           </View>
           <Text style={{ color: "#D4DCFC", fontSize: 11, lineHeight: 18, marginBottom: 20 }}>
             Read from your imported transactions.{"\n"}
-            {String(period?.from ?? "")} — {String(period?.to ?? "")}
+            {String(period?.from ?? "")} â€” {String(period?.to ?? "")}
             {"\n"}
             {transactions.length} transactions, categorized and summarized.
           </Text>
@@ -799,10 +953,10 @@ function FinanceArtifact({ artifact }: { artifact: AgentArtifact }) {
           </View>
         </View>
         <View style={[s.row, { gap: 11, paddingHorizontal: 8, paddingTop: 13, paddingBottom: 4 }]}>
-          <Text style={{ fontSize: 25 }}>💸</Text>
+          <Text style={{ fontSize: 25 }}>ðŸ’¸</Text>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={[s.text, { fontWeight: "600" }]}>Finance tracker</Text>
-            <Text style={s.small}>Spending, savings, and a plan for what’s next.</Text>
+            <Text style={s.small}>Spending, savings, and a plan for whatâ€™s next.</Text>
           </View>
           <ChevronRight size={17} color={colors.muted} />
         </View>
@@ -1037,7 +1191,12 @@ export function DelegateSheet({ goalId, milestoneId }: { goalId?: string; milest
 export function IdeasScreen() {
   const { data, mutate } = useAgentWorkspace();
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [title, setTitle] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [kind, setKind] = useState<AgentTask["kind"]>("agent");
   async function refreshIdeas() {
     setBusy(true);
     setError("");
@@ -1049,36 +1208,138 @@ export function IdeasScreen() {
       setBusy(false);
     }
   }
+  async function createIdea() {
+    setCreating(true);
+    setCreateError("");
+    try {
+      await mutate("/ideas", {
+        title: title.trim(),
+        prompt: prompt.trim(),
+        kind,
+      });
+      setTitle("");
+      setPrompt("");
+      setKind("agent");
+    } catch (e) {
+      setCreateError(errorText(e));
+    } finally {
+      setCreating(false);
+    }
+  }
   const ideas = data?.ideas.filter((idea) => idea.status === "new") || [];
+  const accepted = (data?.ideas || []).filter((idea) => idea.status === "accepted");
+  const kinds: Array<{ id: AgentTask["kind"]; label: string }> = [
+    { id: "agent", label: "Task" },
+    { id: "document", label: "Document" },
+    { id: "plan", label: "Plan" },
+    { id: "monitor", label: "Monitor" },
+    { id: "finance", label: "Finance" },
+  ];
   return (
     <View style={{ gap: 20 }}>
       <AgentStatus />
-      <View style={s.between}>
-        <Text style={s.small}>Inspired by your connected apps</Text>
-        <Button small icon={RefreshCw} busy={busy} onPress={() => void refreshIdeas()}>
-          Find ideas
+
+      <Card style={{ gap: 14, backgroundColor: colors.sky }}>
+        <View style={[s.row, { gap: 12, alignItems: "flex-start" }]}>
+          <View style={[s.iconBox, { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.card }]}>
+            <Lightbulb size={22} color={colors.blueDark} />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={s.heading}>Find ideas</Text>
+            <Text style={s.muted}>
+              Inspired by your connected apps. Discover suggestions with evidence you can review and start.
+            </Text>
+          </View>
+        </View>
+        <ErrorNotice error={error} />
+        <Button primary icon={RefreshCw} busy={busy} onPress={() => void refreshIdeas()}>
+          {ideas.length ? "Refresh ideas" : "Find ideas"}
         </Button>
-      </View>
-      <ErrorNotice error={error} />
-      {ideas.map((idea) => (
-        <IdeaCard key={idea.id} idea={idea} />
-      ))}
-      {!ideas.length && (
+      </Card>
+
+      {!!ideas.length && (
+        <View style={{ gap: 10 }}>
+          <Text style={s.label}>Suggestions for you</Text>
+          <View style={{ gap: 10 }}>
+            {ideas.map((idea) => (
+              <IdeaCard key={idea.id} idea={idea} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {!ideas.length && !error && (
         <Empty
           icon={Lightbulb}
-          title="Room for a good idea"
-          detail="Find ideas from the sources you have granted access to. Each suggestion includes its evidence."
+          title="No suggestions yet"
+          detail="Tap Find ideas to discover suggestions from connected sources, or create your own idea below."
         />
       )}
-      {(data?.ideas || [])
-        .filter((idea) => idea.status === "accepted")
-        .map((idea) => (
-          <Card key={idea.id} style={{ gap: 7 }}>
-            <Text style={s.heading}>{idea.title}</Text>
-            <Chip tint={colors.green}>Started</Chip>
-            {!!idea.taskId && <TaskLink taskId={idea.taskId} />}
-          </Card>
-        ))}
+
+      {!!accepted.length && (
+        <View style={{ gap: 10 }}>
+          <Text style={s.label}>Started ideas</Text>
+          <View style={{ gap: 10 }}>
+            {accepted.map((idea) => (
+              <Card key={idea.id} style={{ gap: 10 }}>
+                <View style={[s.row, { gap: 12, alignItems: "flex-start" }]}>
+                  <Text style={{ fontSize: 24, width: 30 }}>{ideaEmoji(idea.title)}</Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={s.heading}>{idea.title}</Text>
+                    {!!idea.reason && (
+                      <Text style={s.muted} numberOfLines={2}>
+                        {idea.reason}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <View style={[s.row, { gap: 8, flexWrap: "wrap", alignItems: "center" }]}>
+                  <Chip tint={colors.green}>Started</Chip>
+                  {!!idea.kind && <Chip>{statusLabel(idea.kind)}</Chip>}
+                </View>
+                {!!idea.taskId && <TaskLink taskId={idea.taskId} />}
+              </Card>
+            ))}
+          </View>
+        </View>
+      )}
+
+      <Card style={{ gap: 12 }}>
+        <View style={[s.row, { gap: 12, alignItems: "flex-start" }]}>
+          <View style={[s.iconBox, { width: 40, height: 40, borderRadius: 12 }]}>
+            <Plus size={20} color={colors.blueDark} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={s.heading}>Create your own idea</Text>
+            <Text style={s.muted}>Add an idea you want to explore or turn into a task later.</Text>
+          </View>
+        </View>
+        <Field label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Plan a weekend trip" />
+        <Field
+          label="What should be done?"
+          value={prompt}
+          onChangeText={setPrompt}
+          multiline
+          placeholder="Describe the idea or the task you want to start from it"
+        />
+        <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
+          {kinds.map((item) => (
+            <Button key={item.id} small primary={kind === item.id} onPress={() => setKind(item.id)}>
+              {item.label}
+            </Button>
+          ))}
+        </View>
+        <ErrorNotice error={createError} />
+        <Button
+          primary
+          icon={Plus}
+          busy={creating}
+          disabled={!title.trim() || !prompt.trim()}
+          onPress={() => void createIdea()}
+        >
+          Add idea
+        </Button>
+      </Card>
     </View>
   );
 }
@@ -1118,7 +1379,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
     }
   }
   return (
-    <View style={{ paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: colors.line }}>
+    <Card style={{ padding: 16, gap: 0 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`View idea: ${idea.title}`}
@@ -1126,17 +1387,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
         onPress={() => setExpanded(!expanded)}
         style={{ flexDirection: "row", gap: 14 }}
       >
-        <Text style={{ fontSize: 27, width: 34, paddingTop: 3 }}>
-          {/document|permission|form/i.test(idea.title)
-            ? "📋"
-            : /money|spend|saving/i.test(idea.title)
-              ? "💸"
-              : /goal|plan|training/i.test(idea.title)
-                ? "👟"
-                : /dinner|table/i.test(idea.title)
-                  ? "🍽️"
-                  : "💡"}
-        </Text>
+        <Text style={{ fontSize: 27, width: 34, paddingTop: 3 }}>{ideaEmoji(idea.title)}</Text>
         <View style={{ flex: 1, gap: 5 }}>
           <Text style={[s.heading, { fontSize: 16, lineHeight: 23 }]}>{idea.title}</Text>
           <Text style={s.muted}>{idea.reason}</Text>
@@ -1172,7 +1423,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
           </View>
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 export function GoalsScreen() {
@@ -1228,7 +1479,7 @@ export function GoalsScreen() {
         ))}
         {!monitors.length && (
           <Text style={[s.muted, { paddingVertical: 10 }]}>
-            Ticket prices, a reservation, a page you’re watching.
+            Ticket prices, a reservation, a page youâ€™re watching.
           </Text>
         )}
         {monitors.length > 3 && (
@@ -1629,7 +1880,7 @@ function MonitorCard({ monitor, onOpenTask }: { monitor: Monitor; onOpenTask?: (
         {monitor.condition === "change"
           ? "Watch for a page change"
           : monitor.condition === "contains"
-            ? `Watch for “${monitor.value}”`
+            ? `Watch for â€œ${monitor.value}â€`
             : `Price below ${monitor.value}`}
       </Text>
       <Text style={s.small}>
@@ -1720,41 +1971,9 @@ export function NotificationsSheet() {
 }
 export function AppsScreen() {
   const { navigate, open } = useWorkspace();
-  const { data, mutate } = useAgentWorkspace();
+  const { data } = useAgentWorkspace();
   const [query, setQuery] = useState("");
   const [settings, setSettings] = useState(false);
-  const [name, setName] = useState(data?.identity.name || "OpenFuse");
-  const [tone, setTone] = useState(data?.identity.tone || "warm");
-  const [avatar, setAvatar] = useState(data?.identity.avatar || "sky");
-  const [showChatUpdates, setShowChatUpdates] = useState(data?.identity.showChatUpdates !== false);
-  const [memory, setMemory] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (data?.identity) {
-      setName(data.identity.name);
-      setTone(data.identity.tone);
-      setAvatar(data.identity.avatar || "sky");
-      setShowChatUpdates(data.identity.showChatUpdates !== false);
-    }
-  }, [
-    data?.identity.name,
-    data?.identity.tone,
-    data?.identity.avatar,
-    data?.identity.showChatUpdates,
-  ]);
-  async function save(path: string, body: unknown) {
-    setBusy(true);
-    setError("");
-    try {
-      await mutate(path, body);
-      if (path === "/memories") setMemory("");
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  }
   const shortcuts = [
     {
       section: "mail" as const,
@@ -1810,85 +2029,227 @@ export function AppsScreen() {
           ))}
       </Card>
       <Button onPress={() => setSettings(!settings)}>
-        {settings ? "Close agent settings" : "Personality & memory"}
+        {settings ? "Hide personality & memory" : "Personality & memory settings"}
       </Button>
-      {settings && (
-        <>
-          <Card style={{ gap: 10 }}>
-            <SectionHeading title="Your agent" />
-            <View style={[s.row, { gap: 16, justifyContent: "center", marginBottom: 12 }]}>
-              {(["sky", "sand", "lilac"] as const).map((item) => (
-                <Pressable
-                  key={item}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${statusLabel(item)} avatar`}
-                  accessibilityState={{ checked: avatar === item }}
-                  onPress={() => setAvatar(item)}
-                  style={{
-                    padding: 7,
-                    borderRadius: 24,
-                    backgroundColor: avatar === item ? colors.sky : colors.canvas,
-                  }}
-                >
-                  <Mascot size={62} variant={item} />
-                </Pressable>
-              ))}
-            </View>
-            <Field label="Name" value={name} onChangeText={setName} />
-            <View style={[s.row, { gap: 8 }]}>
-              {(["warm", "concise", "thoughtful"] as const).map((item) => (
-                <Button key={item} small primary={tone === item} onPress={() => setTone(item)}>
-                  {statusLabel(item)}
-                </Button>
-              ))}
-            </View>
-            <CheckRow
-              label="Show background updates in chat"
-              checked={showChatUpdates}
-              onPress={() => setShowChatUpdates(!showChatUpdates)}
-            />
-            <Text style={s.small}>
-              Activity and notifications always keep the full record, including requests for
-              approval.
-            </Text>
-            <Button
-              busy={busy}
-              disabled={!name.trim()}
-              onPress={() =>
-                void save("/identity", { name: name.trim(), tone, avatar, showChatUpdates })
-              }
+      {settings && <AgentSettingsPanel />}
+    </View>
+  );
+}
+
+export function AgentSettingsPanel({ onSaved }: { onSaved?: () => void }) {
+  const { data, mutate } = useAgentWorkspace();
+  const [name, setName] = useState(data?.identity.name || "OpenFuse");
+  const [tone, setTone] = useState(data?.identity.tone || "warm");
+  const [avatar, setAvatar] = useState(data?.identity.avatar || "sky");
+  const [pov, setPov] = useState(data?.identity.pov || "");
+  const [showChatUpdates, setShowChatUpdates] = useState(data?.identity.showChatUpdates !== false);
+  const [memory, setMemory] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (data?.identity) {
+      setName(data.identity.name);
+      setTone(data.identity.tone);
+      setAvatar(data.identity.avatar || "sky");
+      setPov(data.identity.pov || "");
+      setShowChatUpdates(data.identity.showChatUpdates !== false);
+    }
+  }, [
+    data?.identity.name,
+    data?.identity.tone,
+    data?.identity.avatar,
+    data?.identity.pov,
+    data?.identity.showChatUpdates,
+  ]);
+  async function save(path: string, body: unknown) {
+    setBusy(true);
+    setError("");
+    try {
+      await mutate(path, body);
+      if (path === "/memories") setMemory("");
+      if (path === "/identity") onSaved?.();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function pickAvatarImage() {
+    setError("");
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const mime = asset.mimeType || "image/png";
+      if (!mime.startsWith("image/")) {
+        setError("Choose an image file.");
+        return;
+      }
+      if (typeof asset.size === "number" && asset.size > 350000) {
+        setError("Image is too large. Choose an image under 350 KB.");
+        return;
+      }
+      if (!asset.uri) {
+        setError("Could not read the selected image.");
+        return;
+      }
+      if (Platform.OS === "web") {
+        const base = typeof asset.file !== "undefined" ? asset.file : asset.uri;
+        const b64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = String(reader.result || "");
+            const i = res.indexOf(",");
+            resolve(i >= 0 ? res.slice(i + 1) : res);
+          };
+          reader.onerror = () => reject(new Error("Could not read the selected image."));
+          if (typeof base === "string")
+            fetch(base)
+              .then((r) => r.blob())
+              .then((b) => reader.readAsDataURL(b))
+              .catch(reject);
+          else reader.readAsDataURL(base as Blob);
+        });
+        setAvatar(`data:${mime};base64,${b64}`);
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: "base64" });
+        setAvatar(`data:${mime};base64,${base64}`);
+      }
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
+  return (
+    <View style={{ gap: 12 }}>
+      <Card style={{ gap: 10 }}>
+        <SectionHeading title="Your agent" />
+        <View style={[s.row, { gap: 16, justifyContent: "center", marginBottom: 12 }]}>
+          <View style={{ alignItems: "center", gap: 8 }}>
+            <Mascot size={62} variant={avatar} />
+            <Text style={s.small}>Current</Text>
+          </View>
+          {(["sky", "sand", "lilac"] as const).map((item) => (
+            <Pressable
+              key={item}
+              accessibilityRole="radio"
+              accessibilityLabel={`${statusLabel(item)} avatar`}
+              accessibilityState={{ checked: avatar === item }}
+              onPress={() => setAvatar(item)}
+              style={{
+                padding: 7,
+                borderRadius: 24,
+                backgroundColor: avatar === item ? colors.sky : colors.canvas,
+              }}
             >
-              Save preferences
+              <Mascot size={62} variant={item} />
+            </Pressable>
+          ))}
+        </View>
+        <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
+          <Button small icon={ImagePlus} onPress={() => void pickAvatarImage()}>
+            Upload image
+          </Button>
+          {!["sky", "sand", "lilac"].includes(avatar) && (
+            <Button small icon={Trash2} onPress={() => setAvatar("sky")}>
+              Use default
             </Button>
-          </Card>
-          <Card style={{ gap: 12 }}>
-            <SectionHeading title="Memory" />
-            <Text style={s.muted}>Context you can inspect, correct or forget.</Text>
-            {data?.memories.map((item) => (
-              <MemoryRow key={item.id} memory={item} />
-            ))}
-            <Field
-              label="Remember something about me"
-              value={memory}
-              onChangeText={setMemory}
-              placeholder="I prefer morning meetings"
-            />
-            <Button
-              busy={busy}
-              disabled={!memory.trim()}
-              onPress={() =>
-                void save("/memories", { text: memory.trim(), source: "User added in Apps" })
-              }
-            >
-              Remember
+          )}
+        </View>
+        <Field
+          label="Avatar image URL or data URI"
+          value={avatar.startsWith("data:") || /^https?:\/\//i.test(avatar) ? avatar : ""}
+          onChangeText={(value) => setAvatar(value.trim() || "sky")}
+          placeholder="https://... or data:image/webp;base64,..."
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Field label="Name" value={name} onChangeText={setName} />
+        <Field
+          label="Personality / point of view"
+          value={pov}
+          onChangeText={setPov}
+          placeholder="How your agent should think, speak, and approach tasks across chats"
+          multiline
+        />
+        <View style={[s.row, { gap: 8 }]}>
+          {(["warm", "concise", "thoughtful"] as const).map((item) => (
+            <Button key={item} small primary={tone === item} onPress={() => setTone(item)}>
+              {statusLabel(item)}
             </Button>
-          </Card>
-        </>
-      )}
+          ))}
+        </View>
+        <CheckRow
+          label="Show background updates in chat"
+          checked={showChatUpdates}
+          onPress={() => setShowChatUpdates(!showChatUpdates)}
+        />
+        <Text style={s.small}>
+          Activity and notifications always keep the full record, including requests for approval.
+        </Text>
+        <Button
+          busy={busy}
+          disabled={!name.trim()}
+          onPress={() =>
+            void save("/identity", {
+              name: name.trim(),
+              tone,
+              avatar,
+              pov: pov.trim(),
+              showChatUpdates,
+            })
+          }
+        >
+          Save preferences
+        </Button>
+      </Card>
+      <Card style={{ gap: 12 }}>
+        <SectionHeading title="Personality & memory" />
+        <Text style={s.muted}>
+          <Text style={{ fontWeight: "600" }}>Personality</Text>: sets your agentâ€™s name, avatar/image, tone, and point of view so replies and behavior stay consistent.{"\n"}
+          <Text style={{ fontWeight: "600" }}>Memory</Text>: saved facts/preferences you add (or the agent remembers when confirmed) that are shared across chats to personalize help. You can edit or forget memories here.
+        </Text>
+        {data?.memories.map((item) => (
+          <MemoryRow key={item.id} memory={item} />
+        ))}
+        <Field
+          label="Remember something about me"
+          value={memory}
+          onChangeText={setMemory}
+          placeholder="I prefer morning meetings"
+        />
+        <Button
+          busy={busy}
+          disabled={!memory.trim()}
+          onPress={() =>
+            void save("/memories", { text: memory.trim(), source: "User added in settings" })
+          }
+        >
+          Remember
+        </Button>
+      </Card>
       <ErrorNotice error={error} />
     </View>
   );
 }
+
+export function AgentSettingsSheet() {
+  const { close } = useWorkspace();
+  return (
+    <Sheet
+      title="Agent personality & memory"
+      subtitle="Change name, image, personality, and memory. Saved centrally for all chats."
+      onClose={close}
+    >
+      <AgentSettingsPanel />
+    </Sheet>
+  );
+}
+
+
 function MemoryRow({ memory }: { memory: AgentMemory }) {
   const { mutate } = useAgentWorkspace();
   const [editing, setEditing] = useState(false);
@@ -1930,7 +2291,7 @@ function MemoryRow({ memory }: { memory: AgentMemory }) {
           </Button>
         )}
         <Button small danger busy={busy} onPress={() => void act(true)}>
-          Forget
+          Forget memory
         </Button>
       </View>
       <ErrorNotice error={error} />

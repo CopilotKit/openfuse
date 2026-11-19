@@ -939,12 +939,21 @@ export function FilesScreen() {
   const { workspace: w, api, refresh, open } = useWorkspace();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  async function removeFile(id: string) {
+    setError("");
+    try {
+      await api.request(`/api/files/${id}`, undefined, "DELETE");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
   async function upload() {
     setError("");
     setBusy(true);
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
+        type: "*/*",
         copyToCacheDirectory: true,
       });
       if (result.canceled) return;
@@ -961,12 +970,12 @@ export function FilesScreen() {
           httpMethod: "POST",
           uploadType: FileSystem.FileSystemUploadType.MULTIPART,
           fieldName: "file",
-          mimeType: "application/pdf",
+          mimeType: file.mimeType || "application/octet-stream",
           headers: { Authorization: `Bearer ${api.token}` },
         });
         const payload = JSON.parse(result.body);
         if (result.status < 200 || result.status >= 300)
-          throw new Error(payload.error || "Could not import this PDF.");
+          throw new Error(payload.error || "Could not import this file.");
         artifact = payload;
       }
       await refresh();
@@ -980,11 +989,15 @@ export function FilesScreen() {
   return (
     <View style={{ gap: 20 }}>
       <View style={s.between}>
-        <Text style={[s.muted, { flex: 1, marginRight: 15 }]}>
-          Documents, with a little room to work.
-        </Text>
+        <View style={{ flex: 1, marginRight: 15, gap: 6 }}>
+          <Text style={s.muted}>Documents, with a little room to work.</Text>
+          <Text style={s.small}>
+            Upload PDF, images (JPG, PNG, GIF, WebP, BMP), Word (.doc, .docx), PowerPoint (.ppt,
+            .pptx), or text (.txt). Max 10 MB.
+          </Text>
+        </View>
         <Button primary icon={Upload} busy={busy} onPress={() => void upload()}>
-          Import PDF
+          Import file
         </Button>
       </View>
       <ErrorNotice error={error} />
@@ -1018,7 +1031,11 @@ export function FilesScreen() {
                 >
                   <View style={[s.row, { gap: 5, marginBottom: 15 }]}>
                     <FileText size={13} color={colors.blueDark} />
-                    <Text style={{ fontSize: 7, color: colors.blueDark }}>DOCUMENT</Text>
+                    <Text style={{ fontSize: 7, color: colors.blueDark }}>
+                      {f.mimeType === "application/pdf"
+                        ? "PDF"
+                        : f.mimeType?.split("/")[1]?.toUpperCase() || "FILE"}
+                    </Text>
                   </View>
                   {[100, 75, 90, 95, 60].map((width, i) => (
                     <View
@@ -1033,9 +1050,6 @@ export function FilesScreen() {
                     />
                   ))}
                 </View>
-                <View style={{ position: "absolute", bottom: 12, right: 14 }}>
-                  <Chip>PDF</Chip>
-                </View>
               </View>
               <View style={{ padding: 21, gap: 6 }}>
                 <Text numberOfLines={1} style={[s.heading, { fontSize: 14 }]}>
@@ -1049,6 +1063,9 @@ export function FilesScreen() {
                   <Chip>{f.source}</Chip>
                   <Text style={s.small}>{dateLabel(f.createdAt)}</Text>
                 </View>
+                <Button small style={{ marginTop: 8 }} onPress={() => void removeFile(f.id)}>
+                  Delete
+                </Button>
               </View>
             </Card>
           </Pressable>
@@ -1059,7 +1076,7 @@ export function FilesScreen() {
           <Empty
             icon={FileText}
             title="Your documents live here"
-            detail="Import a PDF or open a mail attachment to read, fill supported form fields, and share a copy."
+            detail="Import files or open a mail attachment to read, fill supported PDF form fields, and share a copy."
           />
         </Card>
       )}

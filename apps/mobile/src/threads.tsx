@@ -8,6 +8,7 @@ import {
   Plus,
   RefreshCw,
   Settings2,
+  Trash2,
 } from "lucide-react-native";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -32,6 +33,7 @@ const ThreadContext = createContext<{
   retry: () => void;
   select: (selection: Selection) => void;
   start: () => void;
+  remove: (id: string) => void;
   claimPrompt: (id: number) => boolean;
 } | null>(null);
 export function ThreadsProvider({ children }: { children: ReactNode }) {
@@ -71,6 +73,10 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
     setVisited((items) => (items.some((item) => item.id === next.id) ? items : [...items, next]));
     navigate("chat");
   }
+  function remove(id: string) {
+    setVisited((items) => items.filter((item) => item.id !== id));
+    setSelection((current) => (current.id === id ? { id: mainId, existing: true } : current));
+  }
   return (
     <ThreadContext.Provider
       value={{
@@ -88,6 +94,7 @@ export function ThreadsProvider({ children }: { children: ReactNode }) {
         selection,
         select,
         start: () => select({ id: newThreadId(), existing: false }),
+        remove,
       }}
     >
       {children}
@@ -110,6 +117,7 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
     retry,
     select,
     start,
+    remove,
   } = useFuseThread();
   const { workspace, open, navigate, refresh } = useWorkspace();
   const threads = useThreads({ agentId: "default", enabled, includeArchived: true, limit: 20 });
@@ -187,16 +195,48 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
                     item.id !== mainId && !threads.threads.some((saved) => saved.id === item.id),
                 )
                 .map((item, index) => (
-                  <LinkRow
+                  <View
                     key={item.id}
-                    icon={MessageCircle}
-                    title={`Side chat ${index + 1}`}
-                    detail="Open in this app"
-                    onPress={() => {
-                      select(item);
-                      onClose();
+                    style={{
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.line,
+                      gap: 10,
                     }}
-                  />
+                  >
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open conversation: Side chat ${index + 1}`}
+                      accessibilityState={{ selected: selection.id === item.id }}
+                      onPress={() => {
+                        select(item);
+                        onClose();
+                      }}
+                      style={[s.row, { gap: 10 }]}
+                    >
+                      <MessageCircle size={19} color={colors.text} />
+                      <Text style={[s.text, { flex: 1 }]}>{`Side chat ${index + 1}`}</Text>
+                    </Pressable>
+                    <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
+                      <Button
+                        small
+                        onPress={() => {
+                          onClose();
+                          open({ type: "agent-settings" });
+                        }}
+                      >
+                        Forget memory
+                      </Button>
+                      <Button
+                        small
+                        icon={Trash2}
+                        disabled={threads.isMutating}
+                        onPress={() => remove(item.id)}
+                      >
+                        Remove
+                      </Button>
+                    </View>
+                  </View>
                 ))}
             {threads.threads
               .filter((thread) => thread.id !== mainId && thread.archived === archived)
@@ -228,7 +268,7 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
                   {editing === thread.id && (
                     <Field label="Conversation name" value={name} onChangeText={setName} />
                   )}
-                  <View style={[s.row, { gap: 8 }]}>
+                  <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
                     <Button
                       small
                       disabled={threads.isMutating || (editing === thread.id && !name.trim())}
@@ -257,7 +297,51 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
                     >
                       {thread.archived ? "Restore" : "Archive"}
                     </Button>
+                    <Button
+                      small
+                      onPress={() => {
+                        onClose();
+                        open({ type: "agent-settings" });
+                      }}
+                    >
+                      Forget memory
+                    </Button>
+                    {("deleteThread" in threads || !thread.archived) && (
+                      <Button
+                        small
+                        icon={Trash2}
+                        danger
+                        disabled={threads.isMutating}
+                        onPress={() =>
+                          void mutate(async () => {
+                            const api = threads as unknown as {
+                              deleteThread?: (id: string) => Promise<void>;
+                              archiveThread: (id: string) => Promise<void>;
+                              unarchiveThread?: (id: string) => Promise<void>;
+                              refetchThreads?: () => void | Promise<void>;
+                            };
+                            if (typeof api.deleteThread === "function") {
+                              await api.deleteThread(thread.id);
+                            } else {
+                              await api.archiveThread(thread.id);
+                            }
+                            if (selection.id === thread.id) select({ id: mainId, existing: true });
+                            remove(thread.id);
+                            void api.refetchThreads?.();
+                          })
+                        }
+                      >
+                        {typeof (threads as unknown as { deleteThread?: unknown }).deleteThread === "function"
+                          ? "Delete chat"
+                          : "Remove"}
+                      </Button>
+                    )}
                   </View>
+                  <Text style={s.small}>
+                    {typeof (threads as unknown as { deleteThread?: unknown }).deleteThread === "function"
+                      ? "Delete chat removes this conversation history. It does not remove saved memories."
+                      : "Remove hides this conversation from your list. Saved memories are not changed."}
+                  </Text>
                 </View>
               ))}
             {!threads.isLoading &&

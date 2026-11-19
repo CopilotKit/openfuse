@@ -45,9 +45,9 @@ after(async () => {
 });
 
 test("file names never collapse to an empty display name", () => {
-  assert.equal(sanitizeFileName("///"), "document.pdf");
-  assert.equal(sanitizeFileName("\u0000\u0001\u007f"), "document.pdf");
-  assert.equal(sanitizeFileName(""), "document.pdf");
+  assert.equal(sanitizeFileName("///"), "document");
+  assert.equal(sanitizeFileName("\u0000\u0001\u007f"), "document");
+  assert.equal(sanitizeFileName(""), "document");
   assert.equal(sanitizeFileName("C:\\fakepath\\report.pdf"), "report.pdf");
   assert.equal(sanitizeFileName("/tmp/../invoice.pdf"), "invoice.pdf");
   const long = sanitizeFileName(`${"a".repeat(300)}.pdf`);
@@ -82,7 +82,7 @@ test("file lookups reject malformed IDs instead of probing storage", async (t) =
     await assert.rejects(files.bytes("owner", id), { message: /File not found/ });
   }
   const sample = await createSamplePdf();
-  const imported = await files.import("owner", "///", sample, "test");
+  const imported = await files.import("owner", "///", sample, "application/pdf", "test");
   assert.equal(imported.name, "document.pdf");
   const roundTrip = await files.bytes("owner", imported.id);
   assert.equal(Buffer.from(roundTrip).subarray(0, 5).toString(), "%PDF-");
