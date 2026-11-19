@@ -1,4 +1,4 @@
-# Guide to Use (OpenFuse)
+﻿# Guide to Use (OpenFuse)
 
 All commands below assume you are in the repo root unless stated otherwise:
 
@@ -73,17 +73,42 @@ pnpm run typecheck
 - Images (agent avatar upload helpers): `POST /api/images`, `POST /api/images/from-url`, `GET /api/images/:id/content` (auth as implemented).
 - Identity (agent name/avatar/pov etc.): `GET /api/identity`, `POST /api/identity`.
 
-## Chat commands
-In chat (server-side handling):
-- Conversation:
-  - `/clear` — clear saved conversation history for this chat.
-  - `/new` — start a fresh conversation (clears saved conversation history).
-  - `/whoami` — show current agent name, tone, avatar, and point of view.
-- Identity:
-  - Set name (examples the assistant understands): `set my name to Alice`, `my name is Alice`, `change your name to Alice`
-  - Set avatar by URL/reference (stored as `avatar`): `/avatar https://example.com/pic.png` or `set your avatar to https://example.com/pic.png`
-- Device image uploads: use the app UI (chat ⚙ / Apps → Personality & memory) to upload via image endpoints, then apply the returned URL/reference if needed.
+## Chat slash commands
+Type a command in the chat composer and send it. Commands are handled in the chat UI.
 
+### Conversation & control
+| Command | What it does | Notes |
+| --- | --- | --- |
+| `/help`, `/commands` | Show available commands and tips | Safe to run anytime |
+| `/new`, `/reset` | Start a fresh chat | In rich threads this starts a new side chat; in local mode it clears current conversation and starts fresh. Stop an active reply and resolve save issues first. |
+| `/clear`, `/delete`, `/deletechat` | Delete this chat's conversation history | Removes messages/history for the current conversation. **Does not** remove saved memories. Stop an active reply and resolve save issues first. In local mode history is cleared and saved as empty. |
+| `/stop` | Stop the current reply | If nothing is running, reports there is no active reply |
+
+### Status & identity
+| Command | What it does |
+| --- | --- |
+| `/status` | Show mode, readiness/busy/sync state, thread, rich-threads state, queue, message count, and memory count |
+| `/whoami`, `/id` | Show your profile info and the agent name/mode/configured state |
+
+### Memory (forget)
+| Command | What it does | Notes |
+| --- | --- | --- |
+| `/forget` | Show how to forget saved memory | Memory forget erases what the agent should not remember; it does **not** delete chat history |
+| `/forget <text or keyword>` | Forget a matching saved memory | Matches against saved memories; if one match is found it is removed from memory. If multiple match, be more specific. You can also review/edit/forget memories in **Apps → Personality & memory** |
+
+### Delete types (important)
+- **Delete chat history** (`/clear`, `/delete`, `/deletechat`, or thread delete/remove in Threads): removes conversation messages/history for that chat/thread. Use for unnecessary conversations. This does **not** erase saved memories.
+- **Forget memory** (`/forget` or "Forget memory" in Personality & memory): removes saved memory so the agent should not remember it. Use when something was remembered but should be erased. This does **not** delete chat history.
+
+### Thread deletion in Threads menu
+- **Remove** (unsaved side chat): removes the side chat from the current thread list.
+- **Delete chat** (saved thread, when supported): deletes that conversation/thread history.
+- **Remove/Archive fallback** (if true thread delete is unavailable): archives/removes the thread from the active list; saved memories are not changed.
+
+### Other identity helpers
+- Set name (examples the assistant understands): `set my name to Alice`, `my name is Alice`, `change your name to Alice`
+- Set avatar by URL/reference: `/avatar https://example.com/pic.png` or `set your avatar to https://example.com/pic.png`
+- Device image uploads: use the app UI (chat menu / Apps → Personality & memory) to upload, then apply the returned URL/reference if needed.
 ## Git / push policy (important)
 - Do **not** push without explicit user permission.
 - Always ask before pushing; only push if the user says **`push now`** (each time).

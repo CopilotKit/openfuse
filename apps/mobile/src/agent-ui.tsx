@@ -60,6 +60,17 @@ import { useWorkspace } from "./workspace";
 export function statusLabel(value: string) {
   return value.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 }
+function ideaEmoji(title: string) {
+  return /document|permission|form/i.test(title)
+    ? "📋"
+    : /money|spend|saving/i.test(title)
+      ? "💸"
+      : /goal|plan|training/i.test(title)
+        ? "👟"
+        : /dinner|table/i.test(title)
+          ? "🍽️"
+          : "💡";
+}
 function stamp(value?: string) {
   return value
     ? new Date(value).toLocaleString(undefined, {
@@ -1216,6 +1227,7 @@ export function IdeasScreen() {
     }
   }
   const ideas = data?.ideas.filter((idea) => idea.status === "new") || [];
+  const accepted = (data?.ideas || []).filter((idea) => idea.status === "accepted");
   const kinds: Array<{ id: AgentTask["kind"]; label: string }> = [
     { id: "agent", label: "Task" },
     { id: "document", label: "Document" },
@@ -1226,9 +1238,82 @@ export function IdeasScreen() {
   return (
     <View style={{ gap: 20 }}>
       <AgentStatus />
+
+      <Card style={{ gap: 14, backgroundColor: colors.sky }}>
+        <View style={[s.row, { gap: 12, alignItems: "flex-start" }]}>
+          <View style={[s.iconBox, { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.card }]}>
+            <Lightbulb size={22} color={colors.blueDark} />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={s.heading}>Find ideas</Text>
+            <Text style={s.muted}>
+              Inspired by your connected apps. Discover suggestions with evidence you can review and start.
+            </Text>
+          </View>
+        </View>
+        <ErrorNotice error={error} />
+        <Button primary icon={RefreshCw} busy={busy} onPress={() => void refreshIdeas()}>
+          {ideas.length ? "Refresh ideas" : "Find ideas"}
+        </Button>
+      </Card>
+
+      {!!ideas.length && (
+        <View style={{ gap: 10 }}>
+          <Text style={s.label}>Suggestions for you</Text>
+          <View style={{ gap: 10 }}>
+            {ideas.map((idea) => (
+              <IdeaCard key={idea.id} idea={idea} />
+            ))}
+          </View>
+        </View>
+      )}
+
+      {!ideas.length && !error && (
+        <Empty
+          icon={Lightbulb}
+          title="No suggestions yet"
+          detail="Tap Find ideas to discover suggestions from connected sources, or create your own idea below."
+        />
+      )}
+
+      {!!accepted.length && (
+        <View style={{ gap: 10 }}>
+          <Text style={s.label}>Started ideas</Text>
+          <View style={{ gap: 10 }}>
+            {accepted.map((idea) => (
+              <Card key={idea.id} style={{ gap: 10 }}>
+                <View style={[s.row, { gap: 12, alignItems: "flex-start" }]}>
+                  <Text style={{ fontSize: 24, width: 30 }}>{ideaEmoji(idea.title)}</Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={s.heading}>{idea.title}</Text>
+                    {!!idea.reason && (
+                      <Text style={s.muted} numberOfLines={2}>
+                        {idea.reason}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <View style={[s.row, { gap: 8, flexWrap: "wrap", alignItems: "center" }]}>
+                  <Chip tint={colors.green}>Started</Chip>
+                  {!!idea.kind && <Chip>{statusLabel(idea.kind)}</Chip>}
+                </View>
+                {!!idea.taskId && <TaskLink taskId={idea.taskId} />}
+              </Card>
+            ))}
+          </View>
+        </View>
+      )}
+
       <Card style={{ gap: 12 }}>
-        <Text style={s.heading}>Create your own idea</Text>
-        <Text style={s.muted}>Add an idea you want to explore or turn into a task later.</Text>
+        <View style={[s.row, { gap: 12, alignItems: "flex-start" }]}>
+          <View style={[s.iconBox, { width: 40, height: 40, borderRadius: 12 }]}>
+            <Plus size={20} color={colors.blueDark} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={s.heading}>Create your own idea</Text>
+            <Text style={s.muted}>Add an idea you want to explore or turn into a task later.</Text>
+          </View>
+        </View>
         <Field label="Title" value={title} onChangeText={setTitle} placeholder="e.g. Plan a weekend trip" />
         <Field
           label="What should be done?"
@@ -1255,32 +1340,6 @@ export function IdeasScreen() {
           Add idea
         </Button>
       </Card>
-      <View style={s.between}>
-        <Text style={s.small}>Inspired by your connected apps</Text>
-        <Button small icon={RefreshCw} busy={busy} onPress={() => void refreshIdeas()}>
-          Find ideas
-        </Button>
-      </View>
-      <ErrorNotice error={error} />
-      {ideas.map((idea) => (
-        <IdeaCard key={idea.id} idea={idea} />
-      ))}
-      {!ideas.length && (
-        <Empty
-          icon={Lightbulb}
-          title="Room for a good idea"
-          detail="Create your own idea above or find ideas from the sources you have granted access to. Each suggestion includes its evidence."
-        />
-      )}
-      {(data?.ideas || [])
-        .filter((idea) => idea.status === "accepted")
-        .map((idea) => (
-          <Card key={idea.id} style={{ gap: 7 }}>
-            <Text style={s.heading}>{idea.title}</Text>
-            <Chip tint={colors.green}>Started</Chip>
-            {!!idea.taskId && <TaskLink taskId={idea.taskId} />}
-          </Card>
-        ))}
     </View>
   );
 }
@@ -1320,7 +1379,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
     }
   }
   return (
-    <View style={{ paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: colors.line }}>
+    <Card style={{ padding: 16, gap: 0 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`View idea: ${idea.title}`}
@@ -1328,17 +1387,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
         onPress={() => setExpanded(!expanded)}
         style={{ flexDirection: "row", gap: 14 }}
       >
-        <Text style={{ fontSize: 27, width: 34, paddingTop: 3 }}>
-          {/document|permission|form/i.test(idea.title)
-            ? "ðŸ“‹"
-            : /money|spend|saving/i.test(idea.title)
-              ? "ðŸ’¸"
-              : /goal|plan|training/i.test(idea.title)
-                ? "ðŸ‘Ÿ"
-                : /dinner|table/i.test(idea.title)
-                  ? "ðŸ½ï¸"
-                  : "ðŸ’¡"}
-        </Text>
+        <Text style={{ fontSize: 27, width: 34, paddingTop: 3 }}>{ideaEmoji(idea.title)}</Text>
         <View style={{ flex: 1, gap: 5 }}>
           <Text style={[s.heading, { fontSize: 16, lineHeight: 23 }]}>{idea.title}</Text>
           <Text style={s.muted}>{idea.reason}</Text>
@@ -1374,7 +1423,7 @@ function IdeaCard({ idea }: { idea: Idea }) {
           </View>
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 export function GoalsScreen() {
@@ -2211,7 +2260,7 @@ function MemoryRow({ memory }: { memory: AgentMemory }) {
     setBusy(true);
     setError("");
     try {
-      await mutate(`/memories/{memory.id}{forget ? "/forget" : ""}`, forget ? {} : { text });
+      await mutate(`/memories/${memory.id}${forget ? "/forget" : ""}`, forget ? {} : { text });
       setEditing(false);
     } catch (e) {
       setError(errorText(e));
@@ -2242,7 +2291,7 @@ function MemoryRow({ memory }: { memory: AgentMemory }) {
           </Button>
         )}
         <Button small danger busy={busy} onPress={() => void act(true)}>
-          Forget
+          Forget memory
         </Button>
       </View>
       <ErrorNotice error={error} />
