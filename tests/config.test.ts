@@ -177,3 +177,21 @@ test("installs from before the rename keep their access key and data directory",
   await mkdir(join(root, ".openfuse"));
   assert.equal(defaultDataDir(root), ".openfuse");
 });
+
+test("ALLOWED_ORIGINS entries are trimmed and empty entries are ignored", (t) => {
+  const previous = { ...process.env };
+  t.after(() => {
+    process.env = previous;
+  });
+  process.env.WORKSPACE_MODE = "sample";
+  process.env.AGENT_BACKEND = "sample";
+  process.env.HOST = "127.0.0.1";
+  process.env.CPK_INTELLIGENCE_API_KEY = "test-project-key-never-sent";
+  process.env.ALLOWED_ORIGINS = " https://app.example.com , https://admin.example.com , , ";
+  assert.deepEqual(readConfig().allowedOrigins, [
+    "https://app.example.com",
+    "https://admin.example.com",
+  ]);
+  process.env.ALLOWED_ORIGINS = "   ";
+  assert.deepEqual(readConfig().allowedOrigins, []);
+});
