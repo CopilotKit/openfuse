@@ -220,6 +220,15 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
                     <View style={[s.row, { gap: 8, flexWrap: "wrap" }]}>
                       <Button
                         small
+                        onPress={() => {
+                          onClose();
+                          open({ type: "agent-settings" });
+                        }}
+                      >
+                        Forget memory
+                      </Button>
+                      <Button
+                        small
                         icon={Trash2}
                         disabled={threads.isMutating}
                         onPress={() => remove(item.id)}
@@ -287,6 +296,15 @@ export function ThreadsSheet({ onClose }: { onClose: () => void }) {
                       }
                     >
                       {thread.archived ? "Restore" : "Archive"}
+                    </Button>
+                    <Button
+                      small
+                      onPress={() => {
+                        onClose();
+                        open({ type: "agent-settings" });
+                      }}
+                    >
+                      Forget memory
                     </Button>
                     {("deleteThread" in threads || !thread.archived) && (
                       <Button
