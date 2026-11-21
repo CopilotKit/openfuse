@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { access, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { z } from "zod";
 import type {
@@ -8,6 +8,7 @@ import type {
   ComputerDirectory,
   ComputerSnapshot,
 } from "../../../packages/domain/src/computer.ts";
+import { readOrCreate } from "./auth.ts";
 import {
   type ComputerBackend,
   DesktopComputerBackend,
@@ -135,19 +136,52 @@ export const runDocker: DockerRunner = (args, options) =>
     else child.stdin.end(options.input ?? "");
   });
 
+/** The product name in this install's container, volume, sandbox and image names. */
+export function computerBrand(config: Config) {
+  // Legacy name, kept so existing installs keep working: their computers already use it.
+  return config.computerLegacyNames ? "openmuse" : "openfuse";
+}
+/** Where files.py lives inside the computer. */
+export const computerFilesScript = (config: Config) => `/opt/${computerBrand(config)}/files.py`;
 export function computerIdentity(config: Config, owner: string) {
   const deployment = hash(config.computerDeploymentId ?? config.publicUrl).slice(0, 16);
   const ownerHash = hash(owner).slice(0, 24);
-  const name = `openmuse-${deployment}-${ownerHash}`;
+  const brand = computerBrand(config);
+  const name = `${brand}-${deployment}-${ownerHash}`;
   return {
     container: `${name}-computer`,
     volume: `${name}-workspace`,
     labels: {
-      "dev.openmuse.managed": "computer-v1",
-      "dev.openmuse.deployment": deployment,
-      "dev.openmuse.owner": ownerHash,
+      [`dev.${brand}.managed`]: "computer-v1",
+      [`dev.${brand}.deployment`]: deployment,
+      [`dev.${brand}.owner`]: ownerHash,
     } as Record<string, string>,
   };
+}
+/**
+ * Without COMPUTER_DEPLOYMENT_ID, a new install gets a random deployment name, so two installs
+ * on one Docker engine never derive the same computer. An install that already has a signing
+ * key started before this name existed: it keeps the PUBLIC_API_URL name its workspace uses.
+ * The `computer-name` file works the same way: a new install records the current product name,
+ * and an install without it keeps the computer names it already created.
+ * Runs before createAuth, so a new install writes its names before its signing key. The key is
+ * checked first, so a process starting alongside sees the names whenever it sees the key.
+ */
+export async function resolveComputerDeployment(config: Config) {
+  await mkdir(config.dataDir, { recursive: true, mode: 0o700 });
+  const exists = (file: string) =>
+    access(file).then(
+      () => true,
+      () => false,
+    );
+  const existing = await exists(join(config.dataDir, "session-signing-key"));
+  const namePath = join(config.dataDir, "computer-name");
+  if (existing && !(await exists(namePath))) config.computerLegacyNames = true;
+  else await readOrCreate(namePath, () => computerBrand(config));
+  if (config.computerDeploymentId !== undefined) return;
+  const path = join(config.dataDir, "computer-deployment-id");
+  if (existing && !(await exists(path))) return;
+  config.computerDeploymentId = await readOrCreate(path, () => randomBytes(16).toString("hex"));
 }
 export function workspacePath(path: string): string {
   if (
