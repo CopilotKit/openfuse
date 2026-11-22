@@ -152,18 +152,15 @@ pnpm build:ipa            # preview profile: installable iOS build
 
 Both commands print a download link when the cloud build finishes. iOS builds need an Apple Developer account and a registered device; EAS prompts for credentials on the first run. For store submissions use `pnpm --dir apps/mobile dist:store`, which builds an Android App Bundle and an App Store IPA. To point a cloud build at your server, add `"env": { "EXPO_PUBLIC_API_URL": "https://your-api.example.com" }` to the chosen profile in `apps/mobile/eas.json`.
 
+EAS needs an Expo account and Apple credentials. The release workflow therefore builds the same two formats on GitHub runners instead, with no account required: `expo prebuild` generates the native projects, Gradle builds an APK signed with the debug keystore, and Xcode builds an unsigned `.ipa`. The APK installs by sideloading (allow installs from unknown sources). The `.ipa` has to be re-signed with your Apple developer certificate and provisioning profile before a device accepts it — use Xcode, or `codesign`/`fastlane sigh` with your profile. Use EAS when you want store-ready, Apple-signed builds.
+
 ### GitHub Actions builds
 
-Run **Actions → Release → Run workflow**, or push a `v*` tag. The desktop matrix (Ubuntu, Windows, macOS) uploads the installable files as workflow artifacts, and the Android and iOS jobs upload the `.apk` and `.ipa` EAS produces.
+Run **Actions → Release → Run workflow**, or push a `v*` tag. Four jobs build in parallel — the desktop matrix (Ubuntu, Windows, macOS), an Android APK via Gradle, and an iOS `.ipa` via Xcode on a macOS runner — and a final job uploads them as workflow artifacts.
 
-A tag run additionally creates the [GitHub Release](https://github.com/Hamza35779/MyMuse/releases) for that tag and attaches every file built in the run, so the version becomes downloadable from the Releases page. The last job of a run lists what it published.
+A tag run additionally creates the [GitHub Release](https://github.com/Hamza35779/MyMuse/releases) for that tag and attaches every file built in the run (`.exe`, `.msi`, `.dmg`, `.zip`, `.AppImage`, `.deb`, `.apk`, `.ipa`), so the version becomes downloadable from the Releases page. The last job of a run lists what it published.
 
-The mobile jobs need two things set up once:
-
-1. Link the Expo project: `cd apps/mobile && npx eas-cli login && npx eas-cli init`, then commit the generated `extra.eas.projectId` in `apps/mobile/app.json`.
-2. Create a robot token at [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) and add it as a repository secret named `EXPO_TOKEN` (**Settings → Secrets and variables → Actions → New repository secret**).
-
-Until both are in place the mobile jobs are skipped with a notice in the run log instead of failing it, so you still get the desktop installers. Once configured, the workflow waits for each EAS build and adds the `.apk` and `.ipa` to the release. The iOS build also needs an Apple Developer account and registered devices, which EAS asks for on the first run.
+No repository secrets are required: the mobile jobs generate their native projects locally with `expo prebuild` instead of calling EAS. The resulting APK is signed with the debug keystore and the `.ipa` is unsigned, so re-sign it with your Apple certificate before installing on a device.
 
 ## Deploy on Render
 

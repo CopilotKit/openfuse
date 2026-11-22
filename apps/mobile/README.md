@@ -46,7 +46,9 @@ pnpm --dir apps/mobile dist:ios       # installable iOS build (preview profile)
 pnpm --dir apps/mobile dist:store     # Play App Bundle and App Store IPA
 ```
 
-Each build prints a download link. Building an APK locally (`expo prebuild` + `gradlew assembleRelease`) instead works too, but Gradle needs roughly 6 GB of free disk for the NDK and native compile caches. iOS builds need an Apple Developer account and a registered device; EAS asks for credentials on the first run. `EXPO_PUBLIC_API_URL` is baked in at build time, so add `"env": { "EXPO_PUBLIC_API_URL": "https://your-api.example.com" }` to the profile in `eas.json` for a build that talks to a deployed server instead of `localhost`.
+Each build prints a download link. Building an APK locally (`expo prebuild` + `gradlew assembleRelease`) instead works too, but Gradle needs roughly 6 GB of free disk for the NDK and native compile caches. iOS builds need an Apple Developer account and a registered device; EAS asks for credentials on the first run.
+
+The release workflow skips EAS and builds both formats on GitHub runners: `expo prebuild` plus `./gradlew assembleRelease` produces an APK signed with the debug keystore (installable by sideloading), and an unsigned Xcode build is zipped into a `.ipa` that needs re-signing with your certificate and provisioning profile before iOS accepts it. `EXPO_PUBLIC_API_URL` is baked in at build time, so add `"env": { "EXPO_PUBLIC_API_URL": "https://your-api.example.com" }` to the profile in `eas.json` for a build that talks to a deployed server instead of `localhost`.
 
 ## Behavior
 
