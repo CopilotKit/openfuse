@@ -2,10 +2,11 @@ node_modules/
 .expo/
 dist/
 build/
+release/
 .env
 .env.local
 .env.*.local
-.openfuse/
+.mymuse/
 # Legacy name, kept so existing installs keep working.
 .openmuse/
 apps/mobile/ios/

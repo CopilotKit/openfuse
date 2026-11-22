@@ -1,4 +1,4 @@
-name: openfuse
+name: mymuse
 services:
   browser-worker:
     build:

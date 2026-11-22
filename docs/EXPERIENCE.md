@@ -1,6 +1,6 @@
-# OpenFuse interaction design
+# MyMuse interaction design
 
-OpenFuse keeps conversation, ongoing work, and user control together in a shared native and web interface.
+MyMuse keeps conversation, ongoing work, and user control together in a shared native and web interface.
 
 ## Conversation and work
 
@@ -19,7 +19,7 @@ OpenFuse keeps conversation, ongoing work, and user control together in a shared
 
 ## Visual language
 
-An airy canvas, distinct gray and sky-blue message bubbles, large touch targets, rounded input and navigation pills, and restrained artifact frames keep attention on the work. Email, browser and PDF previews show actual tool results. OpenFuse uses an original warm tan capybara, bundled locally; sky, sand and lilac backgrounds preserve the avatar color preference. See [artwork provenance](../apps/mobile/assets/README.md).
+An airy canvas, distinct gray and sky-blue message bubbles, large touch targets, rounded input and navigation pills, and restrained artifact frames keep attention on the work. Email, browser and PDF previews show actual tool results. MyMuse uses an original warm tan capybara, bundled locally; sky, sand and lilac backgrounds preserve the avatar color preference. See [artwork provenance](../apps/mobile/assets/README.md).
 
 ## Boundaries
 

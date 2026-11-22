@@ -52,10 +52,10 @@ test("actions round trip and malformed prefixed actions reject", () => {
   // Choices saved in threads before the rename still parse.
   const saved = legacyJevActionPrefix + JSON.stringify(action);
   assert.deepEqual(parseJevAction(saved), action);
-  assert.throws(() => parseJevAction("[OpenFuse choice] bad-json"));
+  assert.throws(() => parseJevAction("[MyMuse choice] bad-json"));
   assert.throws(() =>
     parseJevAction(
-      '[OpenFuse choice] {"panelId":"p","threadId":"t","candidateSetVersion":1,"optionId":"a","label":"untrusted"}',
+      '[MyMuse choice] {"panelId":"p","threadId":"t","candidateSetVersion":1,"optionId":"a","label":"untrusted"}',
     ),
   );
 });

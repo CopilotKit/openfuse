@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - run: pnpm --dir apps/desktop exec electron-builder --publish never
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.msi
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+
+  android:
+    name: Android APK (EAS)
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - run: pnpm install --frozen-lockfile
+      - name: Check the Expo credentials
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN. Create one at https://expo.dev/settings/access-tokens, then add it under Settings -> Secrets and variables -> Actions -> New repository secret."
+            exit 1
+          fi
+          if ! grep -q '"projectId"' apps/mobile/app.json; then
+            echo "::error::apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once, commit the change, and rerun this workflow."
+            exit 1
+          fi
+      - name: Build the APK
+        working-directory: apps/mobile
+        run: |
+          pnpm exec eas build --platform android --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-android.json"
+          url=$(node -e '
+            const builds = require(process.argv[1]);
+            const build = builds[0] ?? {};
+            const url = build.artifacts?.buildUrl;
+            if (!url) {
+              console.error("EAS did not return an APK URL:", JSON.stringify(build).slice(0, 2000));
+              process.exit(1);
+            }
+            console.log(url);
+          ' "$RUNNER_TEMP/eas-android.json")
+          curl -fL "$url" -o "MyMuse-${{ github.ref_name }}.apk"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-apk
+          if-no-files-found: error
+          path: apps/mobile/MyMuse-${{ github.ref_name }}.apk
+
+  ios:
+    name: iOS build (EAS)
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - run: pnpm install --frozen-lockfile
+      - name: Check the Expo credentials
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN. Create one at https://expo.dev/settings/access-tokens, then add it under Settings -> Secrets and variables -> Actions -> New repository secret."
+            exit 1
+          fi
+          if ! grep -q '"projectId"' apps/mobile/app.json; then
+            echo "::error::apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once, commit the change, and rerun this workflow."
+            exit 1
+          fi
+      - name: Build the iOS app
+        working-directory: apps/mobile
+        run: |
+          pnpm exec eas build --platform ios --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-ios.json"
+          url=$(node -e '
+            const builds = require(process.argv[1]);
+            const build = builds[0] ?? {};
+            const url = build.artifacts?.buildUrl;
+            if (!url) {
+              console.error("EAS did not return an iOS build URL:", JSON.stringify(build).slice(0, 2000));
+              process.exit(1);
+            }
+            console.log(url);
+          ' "$RUNNER_TEMP/eas-ios.json")
+          curl -fL "$url" -o "MyMuse-${{ github.ref_name }}.ipa"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-build
+          if-no-files-found: error
+          path: apps/mobile/MyMuse-${{ github.ref_name }}.ipa

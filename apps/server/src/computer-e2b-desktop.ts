@@ -168,7 +168,7 @@ const stopped = () => new AppError("Start the computer before using its terminal
 
 // Marks which URL the running stream belongs to, so a URL cached by this process is
 // never returned after another process restarted the stream with a new password.
-const streamTagFile = "/tmp/openfuse-stream";
+const streamTagFile = "/tmp/mymuse-stream";
 const streamTag = (url: string) => createHash("sha256").update(url).digest("hex").slice(0, 16);
 const streamState = (tag: string) =>
   [
@@ -214,7 +214,7 @@ export function desktopCommand(
     'rm -rf "$o"',
     "exit $s",
   ].join("\n");
-  return `/bin/bash --noprofile --norc -c ${quote(script)} openfuse ${quote(command)}`;
+  return `/bin/bash --noprofile --norc -c ${quote(script)} mymuse ${quote(command)}`;
 }
 
 // One GUI action, shaped like Anthropic's computer-use tool. Coordinates are native
@@ -314,7 +314,7 @@ export function desktopInput(action: DesktopAction) {
 }
 
 // One fixed path: actions on a computer are serialized by the service's lease.
-const screenshotFile = "/tmp/openfuse-screenshot.jpg";
+const screenshotFile = "/tmp/mymuse-screenshot.jpg";
 // A VNC viewer that loses focus mid-shortcut (e.g. Alt+Tab in the user's browser)
 // leaves that modifier held, and every later click, key and wheel event then becomes
 // a shortcut. Input actions release all modifiers first.

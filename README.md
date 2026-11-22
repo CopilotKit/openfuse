@@ -1,6 +1,6 @@
   <div align="center">
 
-# OpenFuse
+# MyMuse
 
 **A personal agent with a browser, terminal, files, and work that keeps going. Compatible with any agent harness.**
 
@@ -12,13 +12,13 @@ Built with CopilotKit React Native for iOS, Android, and web.
 [![CI](https://github.com/CopilotKit/openfuse/actions/workflows/ci.yml/badge.svg)](https://github.com/CopilotKit/openfuse/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<a href="https://trendshift.io/repositories/254992?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-254992" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/254992/daily?language=TypeScript" alt="CopilotKit%2Fopenfuse | Trendshift" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/254992?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-254992" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/254992/daily?language=TypeScript" alt="CopilotKit%2Fmymuse | Trendshift" width="250" height="55"/></a>
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CopilotKit/openfuse)
 
 Clone this template and customize it however you want.
 
-**[Building on OpenFuse? Meet with the CopilotKit team →](https://www.copilotkit.ai/talk-to-an-engineer?ref=openfuse_hero)**
+**[Building on MyMuse? Meet with the CopilotKit team →](https://www.copilotkit.ai/talk-to-an-engineer?ref=mymuse_hero)**
 
 </div>
 
@@ -26,7 +26,7 @@ Clone this template and customize it however you want.
 
 ## Demo
 
-On iPhone, ask OpenFuse to find interesting stories on Hacker News and summarize CopilotKit. On desktop, ask it to check the school-trip email, open the message, and research exhibits at Monterey Bay Aquarium. The agent shows email and browser results inline. **Take control** opens that same browser session when you need it.
+On iPhone, ask MyMuse to find interesting stories on Hacker News and summarize CopilotKit. On desktop, ask it to check the school-trip email, open the message, and research exhibits at Monterey Bay Aquarium. The agent shows email and browser results inline. **Take control** opens that same browser session when you need it.
 
 The send arrow becomes a stop square inside the input pill while the agent replies, then switches back. Stopping keeps your draft intact. See the [recording notes](docs/DEMO.md) for the model setup and reproduction steps.
 
@@ -36,7 +36,7 @@ The [Jev aquarium-trip demo](docs/demos/jev-generative-ui.md) walks through a fi
 
 ## What it is
 
-OpenFuse is a personal-agent application with an agent computer, visible work, and rich results. It runs its own server, task worker, and browser worker. You can inspect and change the source under the MIT license.
+MyMuse is a personal-agent application with an agent computer, visible work, and rich results. It runs its own server, task worker, and browser worker. You can inspect and change the source under the MIT license.
 
 The computer combines **persistent Chromium and an optional Linux workspace**. The agent can browse public pages, run commands in its own container, work with files, and move PDFs between the computer and the app. You can open its browser or terminal and continue the work. Graphical desktops and autonomous checkout remain future work.
 
@@ -62,8 +62,21 @@ The [feature inventory](docs/FEATURES.md) describes implemented capabilities and
 **Requirements:** Node 24 LTS, pnpm 11.19.0, and a CopilotKit Intelligence project key. The local sample app needs no model, Google account, or Docker.
 
 ```sh
-git clone https://github.com/CopilotKit/openfuse.git openfuse
-cd openfuse
+git clone https://github.com/Hamza35779/openmuse.git openmuse
+cd openmuse
+```
+
+Your clone's `origin` points at your fork ([Hamza35779/openmuse](https://github.com/Hamza35779/openmuse)). Add the original project as `upstream` so you can pull in its changes:
+
+```sh
+git remote add upstream https://github.com/CopilotKit/openfuse.git
+```
+
+Enable the pinned package manager, install, and configure the environment:
+
+```sh
+corepack enable
+corepack prepare pnpm@11.19.0 --activate
 pnpm install --frozen-lockfile
 cp .env.example .env
 npx copilotkit@latest login
@@ -81,6 +94,26 @@ pnpm dev:web
 
 Open [localhost:8081](http://localhost:8081). The API runs at [localhost:8787/api/health](http://localhost:8787/api/health).
 
+If `corepack` is unavailable, install the pinned version directly with `npm install -g pnpm@11.19.0`. With `nvm` or `fnm` on macOS or Linux, `nvm install 24` (or `fnm install 24`) selects the required Node release.
+
+### Work on your own copy
+
+Commit and push to your own fork:
+
+```sh
+git add -A
+git commit -m "Describe the change"
+git push origin main
+```
+
+Pull in changes from the original project without changing your remote:
+
+```sh
+git fetch upstream
+git merge upstream/main
+git push origin main
+```
+
 ### Try it
 
 1. In Chat, send **“Complete the permission slip”**. Open the task, supply fictional form values, inspect the saved PDF, and review the prepared reply. This writes only to the local mailbox.
@@ -90,6 +123,46 @@ Open [localhost:8081](http://localhost:8081). The API runs at [localhost:8787/ap
 
 For iOS or Android, use `pnpm --dir apps/mobile ios` or `pnpm --dir apps/mobile android`. Xcode or Android tooling is required. The PDF reader needs an Expo development build; use [native setup](apps/mobile/README.md).
 
+## Installable apps
+
+Both desktop and mobile builds are clients for an API server. Set `EXPO_PUBLIC_API_URL` to a reachable server (for example your Render URL) when you build; the default is `http://localhost:8787`.
+
+### Desktop (Windows, macOS, Linux)
+
+The desktop app wraps the web client in an Electron shell (`apps/desktop`).
+
+```sh
+pnpm build:desktop:win    # NSIS installer, portable .exe, .msi
+pnpm build:desktop:mac    # .dmg and .zip
+pnpm build:desktop:linux  # .AppImage and .deb
+```
+
+Artifacts land in `apps/desktop/release`. Run each target on its own operating system: `.msi` and `.dmg` cannot be produced elsewhere, while the `.exe` targets also build on Linux with Wine and Xvfb (`xvfb-run -a pnpm --dir apps/desktop exec electron-builder --win nsis portable`). Builds are unsigned unless you provide signing credentials, so Windows SmartScreen and macOS Gatekeeper warn on first launch. Installers are also attached by the [Release workflow](#github-actions-builds). See [apps/desktop/README.md](apps/desktop/README.md).
+
+### Android and iOS
+
+Mobile installers are built with [EAS Build](https://docs.expo.dev/build/introduction/) using `apps/mobile/eas.json`.
+
+```sh
+npx eas-cli login
+npx eas-cli init          # links the project and writes extra.eas.projectId
+pnpm build:apk            # preview profile: installable .apk
+pnpm build:ipa            # preview profile: installable iOS build
+```
+
+Both commands print a download link when the cloud build finishes. iOS builds need an Apple Developer account and a registered device; EAS prompts for credentials on the first run. For store submissions use `pnpm --dir apps/mobile dist:store`, which builds an Android App Bundle and an App Store IPA. To point a cloud build at your server, add `"env": { "EXPO_PUBLIC_API_URL": "https://your-api.example.com" }` to the chosen profile in `apps/mobile/eas.json`.
+
+### GitHub Actions builds
+
+Run **Actions → Release → Run workflow**, or push a `v*` tag. The desktop matrix (Ubuntu, Windows, macOS) uploads the installable files as workflow artifacts, and the Android and iOS jobs upload the `.apk` and `.ipa` EAS produces.
+
+The mobile jobs need two things set up once:
+
+1. Link the Expo project: `cd apps/mobile && npx eas-cli login && npx eas-cli init`, then commit the generated `extra.eas.projectId` in `apps/mobile/app.json`. Without it the jobs stop with a message telling you to do this.
+2. Create a robot token at [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) and add it as a repository secret named `EXPO_TOKEN` (**Settings → Secrets and variables → Actions → New repository secret**).
+
+With both in place, run the workflow; it waits for each EAS build and attaches the download as the `android-apk` and `ios-build` artifacts. The iOS build also needs an Apple Developer account and registered devices, which EAS asks for on the first run.
+
 ## Deploy on Render
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CopilotKit/openfuse)
@@ -98,9 +171,9 @@ For iOS or Android, use `pnpm --dir apps/mobile ios` or `pnpm --dir apps/mobile 
 
 ### First run
 
-1. Click **Deploy to Render**. Wait until `openfuse-api`, `openfuse-web`, and `openfuse-browser` are live.
-2. On `openfuse-api`, open **Environment** and copy `OPENFUSE_ACCESS_KEY`.
-3. Open the `openfuse-web` URL and sign in with that key.
+1. Click **Deploy to Render**. Wait until `mymuse-api`, `mymuse-web`, and `mymuse-browser` are live.
+2. On `mymuse-api`, open **Environment** and copy `MYMUSE_ACCESS_KEY`.
+3. Open the `mymuse-web` URL and sign in with that key.
 4. Send a message.
 
 The deploy form asks for three values you provide. Render generates the other two.
@@ -110,18 +183,18 @@ The deploy form asks for three values you provide. Render generates the other tw
 | `CPK_INTELLIGENCE_API_KEY` | You. Run `npx copilotkit@latest login`, then `npx copilotkit@latest project select`. Keep it on the server. | Chat cannot open a thread. |
 | `CPK_TELEMETRY_ID` | You. Keep the identity generated by the same project selection. | Runtime usage cannot be attributed to the Intelligence signup account. |
 | `OPENAI_API_KEY` | You. Used by the default `openai/gpt-5`. Change `MODEL` and supply the matching provider key for Anthropic or Google. | The model call fails. |
-| `OPENFUSE_ACCESS_KEY` | Render | You cannot sign in. |
+| `MYMUSE_ACCESS_KEY` | Render | You cannot sign in. |
 | `TOKEN_ENCRYPTION_KEY` | Render | The API refuses to start in live mode. |
 
-Health check: `https://<openfuse-api>/api/health`.
+Health check: `https://<mymuse-api>/api/health`.
 
 ### Services
 
 | Service | Plan | What it runs |
 |---|---|---|
-| `openfuse-api` | Standard, with a 1 GB disk at `/var/data` | The Hono API and the in-process task worker. `DATA_DIR` is `/var/data/openfuse`. |
-| `openfuse-web` | Static site | The Expo web export. `EXPO_PUBLIC_API_URL` is baked in at build time. |
-| `openfuse-browser` | Private service, Standard, 1 GB disk at `/data` | Playwright and Chromium. The API calls it on the private network. |
+| `mymuse-api` | Standard, with a 1 GB disk at `/var/data` | The Hono API and the in-process task worker. `DATA_DIR` is `/var/data/mymuse`. |
+| `mymuse-web` | Static site | The Expo web export. `EXPO_PUBLIC_API_URL` is baked in at build time. |
+| `mymuse-browser` | Private service, Standard, 1 GB disk at `/data` | Playwright and Chromium. The API calls it on the private network. |
 
 **Standard** is the smallest plan that stays up. At 512 MB the process runs out of memory before it binds a port, because PGlite loads an embedded Postgres build.
 
@@ -129,7 +202,7 @@ Health check: `https://<openfuse-api>/api/health`.
 
 **Live mode** is required. Render binds `0.0.0.0`, and sample mode rejects any host that is not loopback. The Blueprint sets `WORKSPACE_MODE=live`.
 
-**Browsing is included, and you can take it out.** `openfuse-browser` is a private service, so it has no public URL. The API reaches it at `http://openfuse-browser:8790` with a token Render generates. If the private hostname is not `openfuse-browser`, set `BROWSER_WORKER_URL` to `http://<that-host>:8790`. To deploy without it, delete the `openfuse-browser` service and the `BROWSER_WORKER_URL` and `WORKER_TOKEN` entries on `openfuse-api`. Chat, drafts, and tasks still run. Page reads, screenshots, and **Take control** do not.
+**Browsing is included, and you can take it out.** `mymuse-browser` is a private service, so it has no public URL. The API reaches it at `http://mymuse-browser:8790` with a token Render generates. If the private hostname is not `mymuse-browser`, set `BROWSER_WORKER_URL` to `http://<that-host>:8790`. To deploy without it, delete the `mymuse-browser` service and the `BROWSER_WORKER_URL` and `WORKER_TOKEN` entries on `mymuse-api`. Chat, drafts, and tasks still run. Page reads, screenshots, and **Take control** do not.
 
 The Docker computer and Google mail or calendar need the setup in the sections below. This Blueprint does not start them.
 
@@ -139,7 +212,7 @@ Copy the commented settings in [.env.example](.env.example) into your private `.
 
 1. Set `AGENT_BACKEND=model`, `MODEL=provider/model-id`, and the matching provider key. CopilotKit supports the configured OpenAI, Anthropic or Google provider. Fictional data can still be used with a real model. Provider keys stay on the server.
 2. Create or select a CopilotKit Intelligence project with `npx copilotkit@latest login` and `npx copilotkit@latest project select`. Keep the generated `CPK_INTELLIGENCE_API_KEY` on the server.
-3. For personal mail/calendar, set `WORKSPACE_MODE=live`, the generated `CPK_INTELLIGENCE_API_KEY`, a random `OPENFUSE_ACCESS_KEY` of at least 24 characters, and `TOKEN_ENCRYPTION_KEY` containing 32 random bytes encoded as base64. Restart the API.
+3. For personal mail/calendar, set `WORKSPACE_MODE=live`, the generated `CPK_INTELLIGENCE_API_KEY`, a random `MYMUSE_ACCESS_KEY` of at least 24 characters, and `TOKEN_ENCRYPTION_KEY` containing 32 random bytes encoded as base64. Restart the API.
 4. Configure a Google OAuth web client with Gmail and Calendar APIs enabled. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`; register `${PUBLIC_API_URL}/api/google/callback` as its redirect URI. Configure consent/test-user access in your Google project.
 5. Open **Apps → Gmail** (or **Google Calendar**), connect read access, and grant write access when needed. Every send or calendar change still requires its own stored review. Changing/disconnecting the account invalidates pending connection-bound work.
 
@@ -169,7 +242,7 @@ Or use `docker compose --env-file .env -f infra/compose.yaml up --build -d`. The
 Build the computer image, enable it on the API, then open **Computer → Terminal → Start computer**:
 
 ```sh
-docker build -t openfuse-computer:local apps/computer
+docker build -t mymuse-computer:local apps/computer
 COMPUTER_ENABLED=true pnpm dev
 ```
 
@@ -177,7 +250,7 @@ The API needs access to the Docker CLI and engine. Commands run in a nonroot con
 
 ### Application storage
 
-By default, embedded PGlite, documents and the signing key live in `.openfuse/`; browser profiles live in `.openfuse/browser-profiles/`. Keep that directory private and back it up. The API hosts the task worker. The host must remain running for background work.
+By default, embedded PGlite, documents and the signing key live in `.mymuse/`; browser profiles live in `.mymuse/browser-profiles/`. Keep that directory private and back it up. The API hosts the task worker. The host must remain running for background work.
 
 For a separate task worker, configure the same `DATABASE_URL`, secrets and shared `DATA_DIR` for both processes, then set `TASK_WORKER_ENABLED=false` on the API and run `pnpm dev:worker`. PGlite cannot be opened by separate processes. Production commands are `pnpm build:server`, `pnpm start` and `pnpm start:worker`. Run one API instance; task workers coordinate through SQL leases.
 
@@ -191,7 +264,7 @@ Intelligence is a separate service and is not included in this repository's MIT 
 
 ## Signup and runtime tracking
 
-The CopilotKit SDK sends runtime telemetry through the shared CopilotKit sink to PostHog with `accessibility_title: "OpenFuse"`. Telemetry defaults to full capture; explicit SDK opt-outs and sampling settings take precedence. Keep the CLI-generated `CPK_TELEMETRY_ID` alongside the server-only project key when deploying. Intelligence records completed account signups separately; OpenFuse runtime usage can be joined to those accounts after the sink resolves the identity. [Setup, opt-out and PostHog validation](docs/TELEMETRY.md).
+The CopilotKit SDK sends runtime telemetry through the shared CopilotKit sink to PostHog with `accessibility_title: "MyMuse"`. Telemetry defaults to full capture; explicit SDK opt-outs and sampling settings take precedence. Keep the CLI-generated `CPK_TELEMETRY_ID` alongside the server-only project key when deploying. Intelligence records completed account signups separately; MyMuse runtime usage can be joined to those accounts after the sink resolves the identity. [Setup, opt-out and PostHog validation](docs/TELEMETRY.md).
 
 ## Architecture
 
@@ -226,7 +299,7 @@ flowchart TD
 
 ### OpenBot compatibility
 
-OpenFuse's native client and personal-agent workflows are independent of OpenBot. The disabled OpenBot adapter is pinned and contract-tested against upstream interfaces. Live user/session bridging, routine mapping, and computer backend wiring remain future work. OpenBot's Intelligence runtime is not a raw AG-UI endpoint. [Integration contract](docs/OPENBOT-INTEGRATION.md).
+MyMuse's native client and personal-agent workflows are independent of OpenBot. The disabled OpenBot adapter is pinned and contract-tested against upstream interfaces. Live user/session bridging, routine mapping, and computer backend wiring remain future work. OpenBot's Intelligence runtime is not a raw AG-UI endpoint. [Integration contract](docs/OPENBOT-INTEGRATION.md).
 
 ## Development
 
@@ -243,7 +316,7 @@ pnpm test:browser
 pnpm test:computer
 ```
 
-Platform build scripts export JavaScript/Hermes bundles; they do not produce signed app binaries. Browser checks use controlled HTTP fixtures; the local check requires installed Chromium, and the container check requires Docker and registry access to build its image. CI also exercises the browser and Linux computer containers. See [contribution guidance](CONTRIBUTING.md) and [verification results](docs/VERIFICATION.md).
+Platform build scripts export JavaScript/Hermes bundles; they do not produce signed app binaries. Use the [installable app builds](#installable-apps) for those. Browser checks use controlled HTTP fixtures; the local check requires installed Chromium, and the container check requires Docker and registry access to build its image. CI also exercises the browser and Linux computer containers. See [contribution guidance](CONTRIBUTING.md) and [verification results](docs/VERIFICATION.md).
 
 ## Contributing and license
 

@@ -174,7 +174,7 @@ export async function createBrowserManager(
       );
     const previous = sessions.get(id);
     const profileDir = join(directory(id), "profile");
-    const tempDirectory = join("/tmp", `openfuse-downloads-${id}`);
+    const tempDirectory = join("/tmp", `mymuse-downloads-${id}`);
     await mkdir(profileDir, { recursive: true, mode: 0o700 });
     await mkdir(tempDirectory, { recursive: true, mode: 0o700 });
     let context: BrowserContext;

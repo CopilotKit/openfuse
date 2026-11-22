@@ -1,0 +1,51 @@
+appId: app.mymuse.desktop
+productName: MyMuse
+executableName: MyMuse
+copyright: MIT licensed. Built by CopilotKit.
+directories:
+  output: release
+  buildResources: build
+asar: true
+npmRebuild: false
+electronLanguages: [en-US]
+files:
+  - main.cjs
+  - package.json
+extraResources:
+  - from: ../mobile/dist/web
+    to: web
+    filter:
+      - "**/*"
+      - "!**/*.map"
+      - "!**/*.d.ts"
+      - "!**/.DS_Store"
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+    - target: msi
+      arch: [x64]
+nsis:
+  artifactName: ${productName}-${version}-win-${arch}-setup.${ext}
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+portable:
+  artifactName: ${productName}-${version}-win-${arch}-portable.${ext}
+msi:
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
+mac:
+  icon: build/icon.png
+  category: public.app-category.productivity
+  target: [dmg, zip]
+linux:
+  icon: build/icon.png
+  category: Utility
+  maintainer: CopilotKit
+  synopsis: Personal agent with a browser, terminal, and files
+  target: [AppImage, deb]

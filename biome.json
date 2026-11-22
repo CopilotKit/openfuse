@@ -7,9 +7,10 @@
       "!**/node_modules",
       "!**/.expo",
       "!**/dist",
+      "!**/release",
       "!**/ios",
       "!**/android",
-      "!**/.openfuse",
+      "!**/.mymuse",
       "!**/.openmuse",
       "!**/artifacts"
     ]

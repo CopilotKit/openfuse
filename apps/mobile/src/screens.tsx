@@ -1380,8 +1380,8 @@ export function ConnectionsScreen({ query = "" }: { query?: string }) {
                 has not been configured.
               </Text>
               <Text style={s.muted}>
-                Your current computer uses OpenFuse’s persistent Chromium worker. OpenBot
-                integration will expand the execution backend while keeping this interface.
+                Your current computer uses MyMuse’s persistent Chromium worker. OpenBot integration
+                will expand the execution backend while keeping this interface.
               </Text>
             </View>
           )}

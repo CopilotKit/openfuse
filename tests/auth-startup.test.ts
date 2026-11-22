@@ -23,7 +23,7 @@ function config(dataDir: string): Config {
 }
 
 test("concurrent first startups share one complete signing key", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "openfuse-auth-race-"));
+  const directory = await mkdtemp(join(tmpdir(), "mymuse-auth-race-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const instances = await Promise.all(
     Array.from({ length: 16 }, () => createAuth({} as Store, config(directory))),
@@ -38,7 +38,7 @@ test("concurrent first startups share one complete signing key", async (t) => {
 });
 
 test("startup preserves an existing signing key and its links", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "openfuse-auth-existing-"));
+  const directory = await mkdtemp(join(tmpdir(), "mymuse-auth-existing-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const key = Buffer.alloc(32, 7).toString("base64");
   await writeFile(join(directory, "session-signing-key"), key, { mode: 0o600 });
@@ -51,8 +51,8 @@ test("startup preserves an existing signing key and its links", async (t) => {
 });
 
 test("new installs get their own computer name, shared by concurrent first starts", async (t) => {
-  const first = await mkdtemp(join(tmpdir(), "openfuse-deployment-a-"));
-  const second = await mkdtemp(join(tmpdir(), "openfuse-deployment-b-"));
+  const first = await mkdtemp(join(tmpdir(), "mymuse-deployment-a-"));
+  const second = await mkdtemp(join(tmpdir(), "mymuse-deployment-b-"));
   t.after(() => rm(first, { recursive: true, force: true }));
   t.after(() => rm(second, { recursive: true, force: true }));
   const starts = Array.from({ length: 8 }, () => config(first));
@@ -68,12 +68,12 @@ test("new installs get their own computer name, shared by concurrent first start
     computerIdentity(starts[0], "local-user").volume,
   );
   for (const start of starts)
-    assert.match(computerIdentity(start, "local-user").volume, /^openfuse-/);
+    assert.match(computerIdentity(start, "local-user").volume, /^mymuse-/);
   assert.deepEqual((await readdir(first)).sort(), ["computer-deployment-id", "computer-name"]);
 });
 
 test("a new install keeps its computer name after restart", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "openfuse-deployment-restart-"));
+  const directory = await mkdtemp(join(tmpdir(), "mymuse-deployment-restart-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const names: (string | undefined)[] = [];
   const containers: string[] = [];
@@ -87,12 +87,12 @@ test("a new install keeps its computer name after restart", async (t) => {
   }
   assert.match(names[0] ?? "", /^[0-9a-f]{32}$/);
   assert.equal(names[1], names[0]);
-  assert.match(containers[0] ?? "", /^openfuse-/);
+  assert.match(containers[0] ?? "", /^mymuse-/);
   assert.equal(containers[1], containers[0]);
 });
 
 test("existing installs and explicit names keep their computer", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "openfuse-deployment-legacy-"));
+  const directory = await mkdtemp(join(tmpdir(), "mymuse-deployment-legacy-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   await writeFile(join(directory, "session-signing-key"), Buffer.alloc(32, 7).toString("base64"));
   const legacy = config(directory);
@@ -102,7 +102,7 @@ test("existing installs and explicit names keep their computer", async (t) => {
   // An install from before the rename keeps the computer names it already created.
   assert.deepEqual(
     computerIdentity(legacy, "local-user"),
-    JSON.parse(renamed.replaceAll("openfuse", "openmuse")),
+    JSON.parse(renamed.replaceAll("mymuse", "openmuse")),
   );
   const named = { ...config(directory), computerDeploymentId: "fixture-deployment" };
   await resolveComputerDeployment(named);

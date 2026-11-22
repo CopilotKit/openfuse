@@ -8,7 +8,7 @@ function decodeKey(key: string): Buffer {
   return bytes;
 }
 
-const credentialAad = Buffer.from("openfuse:credential:v1");
+const credentialAad = Buffer.from("mymuse:credential:v1");
 // Legacy name, kept so existing installs keep working: credentials saved before the rename use it.
 export const legacyCredentialAad = Buffer.from("openmuse:credential:v1");
 

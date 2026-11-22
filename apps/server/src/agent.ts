@@ -59,10 +59,10 @@ export function makeRuntime(
     agents,
     intelligence,
     // The shared CopilotKit sink carries this tag onto existing PostHog events.
-    telemetryProperties: { accessibility_title: "OpenFuse" },
+    telemetryProperties: { accessibility_title: "MyMuse" },
     identifyUser: async (request) => ({
       id: await auth.owner(request.headers.get("authorization") ?? undefined),
-      name: "OpenFuse user",
+      name: "MyMuse user",
     }),
     generateThreadNames: false,
   });

@@ -18,7 +18,7 @@ const sampleConfig: Config = {
   port: 8787,
   host: "127.0.0.1",
   publicUrl: "http://localhost:8787",
-  dataDir: ".openfuse",
+  dataDir: ".mymuse",
   agentBackend: "sample",
   googleRedirectUri: "http://localhost:8787/api/google/callback",
   allowedOrigins: ["http://localhost:8081"],
@@ -34,7 +34,7 @@ function liveConfig(intelligenceApiKey?: string): Config {
 }
 
 const missingKeyMessage =
-  "OpenFuse requires CPK_INTELLIGENCE_API_KEY. " +
+  "MyMuse requires CPK_INTELLIGENCE_API_KEY. " +
   "Run `npx copilotkit@latest login` and `npx copilotkit@latest project select`, " +
   "then set the generated server-only key. " +
   "See https://docs.copilotkit.ai/intelligence/connect-your-runtime";
@@ -110,7 +110,7 @@ test("browser worker URL keeps an existing scheme and adds http to host:port", (
   assert.equal(browserWorkerUrl("  "), undefined);
   assert.equal(browserWorkerUrl("http://127.0.0.1:8790"), "http://127.0.0.1:8790");
   assert.equal(browserWorkerUrl("https://browser.internal:8790"), "https://browser.internal:8790");
-  assert.equal(browserWorkerUrl("openfuse-browser-h4fx:8790"), "http://openfuse-browser-h4fx:8790");
+  assert.equal(browserWorkerUrl("mymuse-browser-h4fx:8790"), "http://mymuse-browser-h4fx:8790");
 });
 
 test("environment variables that override a different .env value are reported by name", () => {
@@ -162,18 +162,18 @@ test("computer provider defaults to Docker and e2b-desktop requires a server-sid
 
 test("installs from before the rename keep their access key and data directory", async (t) => {
   const key = "k".repeat(24);
-  assert.equal(accessKeyFromEnv({ OPENFUSE_ACCESS_KEY: key }), key);
-  assert.equal(accessKeyFromEnv({ OPENFUSE_ACCESS_KEY: key, OPENMUSE_ACCESS_KEY: "old" }), key);
+  assert.equal(accessKeyFromEnv({ MYMUSE_ACCESS_KEY: key }), key);
+  assert.equal(accessKeyFromEnv({ MYMUSE_ACCESS_KEY: key, OPENMUSE_ACCESS_KEY: "old" }), key);
   // Legacy names, kept so existing installs keep working.
   assert.equal(accessKeyFromEnv({ OPENMUSE_ACCESS_KEY: key }), key);
-  assert.equal(accessKeyFromEnv({ OPENFUSE_ACCESS_KEY: "", OPENMUSE_ACCESS_KEY: key }), key);
+  assert.equal(accessKeyFromEnv({ MYMUSE_ACCESS_KEY: "", OPENMUSE_ACCESS_KEY: key }), key);
   assert.equal(accessKeyFromEnv({}), undefined);
 
-  const root = await mkdtemp(join(tmpdir(), "openfuse-data-dir-"));
+  const root = await mkdtemp(join(tmpdir(), "mymuse-data-dir-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  assert.equal(defaultDataDir(root), ".openfuse");
+  assert.equal(defaultDataDir(root), ".mymuse");
   await mkdir(join(root, ".openmuse"));
   assert.equal(defaultDataDir(root), ".openmuse");
-  await mkdir(join(root, ".openfuse"));
-  assert.equal(defaultDataDir(root), ".openfuse");
+  await mkdir(join(root, ".mymuse"));
+  assert.equal(defaultDataDir(root), ".mymuse");
 });

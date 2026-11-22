@@ -77,7 +77,7 @@ export const jevActionSchema = z
     optionId: id,
   })
   .strict();
-export const jevActionPrefix = "[OpenFuse choice] ";
+export const jevActionPrefix = "[MyMuse choice] ";
 // Legacy name, kept so existing installs keep working: older threads and clients send it.
 export const legacyJevActionPrefix = "[OpenMuse choice] ";
 /** The choice prefix `text` starts with, if it is a choice message. */

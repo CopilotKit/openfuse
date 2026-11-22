@@ -1,0 +1,25 @@
+{
+  "name": "@mymuse/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MyMuse desktop app for Windows, macOS, and Linux.",
+  "author": "CopilotKit",
+  "license": "MIT",
+  "homepage": "https://github.com/Hamza35779/openmuse",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hamza35779/openmuse.git"
+  },
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  }
+}

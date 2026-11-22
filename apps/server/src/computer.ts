@@ -139,7 +139,7 @@ export const runDocker: DockerRunner = (args, options) =>
 /** The product name in this install's container, volume, sandbox and image names. */
 export function computerBrand(config: Config) {
   // Legacy name, kept so existing installs keep working: their computers already use it.
-  return config.computerLegacyNames ? "openmuse" : "openfuse";
+  return config.computerLegacyNames ? "openmuse" : "mymuse";
 }
 /** Where files.py lives inside the computer. */
 export const computerFilesScript = (config: Config) => `/opt/${computerBrand(config)}/files.py`;

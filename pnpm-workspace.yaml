@@ -1,9 +1,13 @@
 packages:
+  - apps/desktop
   - apps/mobile
   - apps/worker
 allowBuilds:
   esbuild: true
   '@biomejs/biome': true
+  electron: true
+  electron-winstaller: false
+  dtrace-provider: false
   '@scarf/scarf': false
   '@google/genai': false
   protobufjs: false

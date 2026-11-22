@@ -32,7 +32,7 @@ export function sandbox(running = true, owner = "owner", settings: Config = conf
     Id: "container-id",
     Name: `/${identity.container}`,
     Config: {
-      Image: "openfuse-computer:local",
+      Image: "mymuse-computer:local",
       User: "1000:1000",
       Labels: identity.labels,
       Env: ["PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/workspace", "LANG=C.UTF-8"],

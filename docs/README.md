@@ -1,6 +1,6 @@
-# OpenFuse documentation
+# MyMuse documentation
 
-## Watch OpenFuse
+## Watch MyMuse
 
 [Recording notes and reproduction](DEMO.md)
 
