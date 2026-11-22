@@ -1,0 +1,113 @@
+name: APK smoke test
+
+# Downloads a released APK, installs it in an Android emulator, launches it,
+# and checks that it called the API. The app defaults to http://10.0.2.2:8787 on
+# Android, which is the host loopback from inside the emulator, so the API runs
+# on the runner behind a logging proxy that records every request.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag whose APK should be tested
+        required: true
+        default: v0.1.0
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    name: Install and launch the APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - run: pnpm install --frozen-lockfile
+      - name: Fetch the released APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p apk
+          gh release download "${{ inputs.tag }}" -R "${{ github.repository }}" -p "*.apk" -D apk
+          ls -l apk
+      - name: Start the API and a logging proxy
+        run: |
+          set -euo pipefail
+          PORT=8788 pnpm dev > /tmp/api.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8788/api/health >/dev/null && break
+            sleep 2
+          done
+          curl -s http://127.0.0.1:8788/api/health
+          echo
+          cat > /tmp/proxy.mjs <<'JS'
+          import fs from "node:fs";
+          import http from "node:http";
+
+          const log = fs.createWriteStream("/tmp/requests.log", { flags: "a" });
+          http
+            .createServer((req, res) => {
+              log.write(`${req.method} ${req.url}\n`);
+              const upstream = http.request(
+                { host: "127.0.0.1", port: 8788, path: req.url, method: req.method, headers: req.headers },
+                (response) => {
+                  res.writeHead(response.statusCode ?? 502, response.headers);
+                  response.pipe(res);
+                },
+              );
+              upstream.on("error", () => {
+                res.writeHead(502);
+                res.end();
+              });
+              req.pipe(upstream);
+            })
+            .listen(8787, "127.0.0.1");
+          JS
+          node /tmp/proxy.mjs > /tmp/proxy.log 2>&1 &
+          sleep 2
+          curl -s -o /dev/null -w "proxy health: %{http_code}\n" http://127.0.0.1:8787/api/health
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -e
+            adb install -r apk/*.apk
+            adb shell pm list packages | grep app.mymuse.mobile
+            adb shell am start -n app.mymuse.mobile/.MainActivity
+            sleep 30
+            adb shell pidof app.mymuse.mobile
+            adb logcat -d > /tmp/logcat.txt
+            if grep -q "FATAL EXCEPTION" /tmp/logcat.txt; then
+              echo "::error::The app crashed on launch"
+              grep -A 25 "FATAL EXCEPTION" /tmp/logcat.txt
+              exit 1
+            fi
+            adb exec-out screencap -p > /tmp/screen.png
+            ls -l /tmp/screen.png
+      - name: Check that the app called the API
+        run: |
+          echo "--- API requests seen ---"
+          cat /tmp/requests.log || true
+          grep -q "/api/" /tmp/requests.log || {
+            echo "::error::The app never requested the API"
+            exit 1
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: apk-smoke-evidence
+          if-no-files-found: warn
+          path: |
+            /tmp/screen.png
+            /tmp/logcat.txt
+            /tmp/requests.log
+            /tmp/api.log

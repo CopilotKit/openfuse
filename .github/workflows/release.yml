@@ -107,9 +107,82 @@ jobs:
           if-no-files-found: error
           path: apps/mobile/MyMuse-${{ github.ref_name }}.ipa
 
+  # Store-ready artifacts need real signing: an upload keystore for Play and an
+  # Apple development certificate plus provisioning profile for the App Store.
+  # EAS holds both, so these jobs only run when the repository has an Expo token
+  # and a linked project, and skip with a notice otherwise.
+  credentials:
+    name: Check the store credentials
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: check
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::notice::Skipping the store builds: no EXPO_TOKEN secret. Create one at https://expo.dev/settings/access-tokens and add it under Settings -> Secrets and variables -> Actions."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif ! grep -q '"projectId"' apps/mobile/app.json; then
+            echo "::notice::Skipping the store builds: apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once and commit the change."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  store:
+    name: Store builds (EAS)
+    needs: credentials
+    if: needs.credentials.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - run: pnpm install --frozen-lockfile
+      - name: Build the signed AAB and App Store IPA
+        working-directory: apps/mobile
+        run: |
+          pnpm exec eas build --platform all --profile production --non-interactive --wait --json > "$RUNNER_TEMP/store.json"
+          node -e '
+            const builds = require(process.argv[1]);
+            for (const build of builds) {
+              const url = build.artifacts?.buildUrl;
+              const platform = (build.platform ?? "unknown").toLowerCase();
+              if (!url) {
+                console.error(`No artifact URL for ${platform}`, JSON.stringify(build).slice(0, 1000));
+                process.exit(1);
+              }
+              console.log(`${platform} ${url}`);
+            }
+          ' "$RUNNER_TEMP/store.json" > "$RUNNER_TEMP/urls.txt"
+          cat "$RUNNER_TEMP/urls.txt"
+          while read -r platform url; do
+            case "$platform" in
+              android) ext=aab ;;
+              ios) ext=ipa ;;
+              *) ext=bin ;;
+            esac
+            curl -fL "$url" -o "MyMuse-${{ github.ref_name }}-store-$platform.$ext"
+          done < "$RUNNER_TEMP/urls.txt"
+          ls -l *-store-*.*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: store-builds
+          if-no-files-found: error
+          path: |
+            apps/mobile/*-store-*.aab
+            apps/mobile/*-store-*.ipa
+
   publish:
     name: Publish the release
-    needs: [desktop, android, ios]
+    needs: [desktop, android, ios, store]
     if: always() && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

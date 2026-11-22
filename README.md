@@ -160,7 +160,11 @@ Run **Actions → Release → Run workflow**, or push a `v*` tag. Four jobs buil
 
 A tag run additionally creates the [GitHub Release](https://github.com/Hamza35779/MyMuse/releases) for that tag and attaches every file built in the run (`.exe`, `.msi`, `.dmg`, `.zip`, `.AppImage`, `.deb`, `.apk`, `.ipa`), so the version becomes downloadable from the Releases page. The last job of a run lists what it published.
 
-No repository secrets are required: the mobile jobs generate their native projects locally with `expo prebuild` instead of calling EAS. The resulting APK is signed with the debug keystore and the `.ipa` is unsigned, so re-sign it with your Apple certificate before installing on a device.
+No repository secrets are required for those files: the mobile jobs generate their native projects locally with `expo prebuild` instead of calling EAS. The resulting APK is signed with the debug keystore and the `.ipa` is unsigned, so re-sign it with your Apple certificate before installing on a device.
+
+Two optional jobs add store-ready artifacts, and they skip with a notice until the repository has an `EXPO_TOKEN` secret **and** `extra.eas.projectId` in `apps/mobile/app.json` (see the EAS setup above, plus Apple and Play credentials on your Expo account). They run `eas build --platform all --profile production` and attach the signed `MyMuse-<tag>-store-android.aab` and `MyMuse-<tag>-store-ios.ipa` to the tag release alongside the unsigned builds.
+
+To check a released APK actually runs, run **Actions → APK smoke test** with the tag. It downloads the APK from the release, boots an Android 14 emulator, installs and launches it, then starts the API on the runner behind a logging proxy (`10.0.2.2:8787` inside the emulator is the runner's loopback) and fails if the app never requests it. The screenshot, logcat, and request log are kept as the `apk-smoke-evidence` artifact.
 
 ## Deploy on Render
 
