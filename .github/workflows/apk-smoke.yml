@@ -6,6 +6,8 @@ name: APK smoke test
 # on the runner behind a logging proxy that records every request.
 
 on:
+  push:
+    branches: [apk-smoke]
   workflow_dispatch:
     inputs:
       tag:
