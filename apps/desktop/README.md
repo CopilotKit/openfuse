@@ -38,3 +38,9 @@ Windows and macOS). macOS also requires `CSC_IDENTITY_AUTO_DISCOVERY=false` for 
 
 The packaged app contains the web client under `resources/web` and does not need Node or pnpm at
 runtime. It does need a reachable API, set via `EXPO_PUBLIC_API_URL` when the web client is built.
+
+`build/after-pack.cjs` trims the bundle after packaging: it keeps only the `en-US` Chromium locale
+and deletes the SwiftShader/Vulkan fallback libraries (`libvk_swiftshader`, `libvulkan`, `vulkan-1`),
+which saves a few megabytes per installer. Chromium then renders through its software rasterizer on
+machines without a usable GPU, so WebGL-heavy pages are slower there. Drop those entries from the
+hook if a build needs the GPU fallback.
