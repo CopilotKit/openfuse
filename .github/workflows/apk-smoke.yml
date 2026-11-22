@@ -102,10 +102,7 @@ jobs:
             set -e
             # Software emulation boots slowly, so wait for the package service
             # instead of assuming adb being up means the system is ready.
-            for _ in $(seq 1 60); do
-              adb shell pm path android > /dev/null 2>&1 && break
-              sleep 5
-            done
+            for _ in $(seq 1 60); do adb shell pm path android > /dev/null 2>&1 && break; sleep 5; done
             adb shell pm path android
             adb install -r apk/*.apk
             adb shell pm list packages | grep app.mymuse.mobile
@@ -113,11 +110,7 @@ jobs:
             sleep 45
             adb shell pidof app.mymuse.mobile
             adb logcat -d > /tmp/logcat.txt
-            if grep -q "FATAL EXCEPTION" /tmp/logcat.txt; then
-              echo "::error::The app crashed on launch"
-              grep -A 25 "FATAL EXCEPTION" /tmp/logcat.txt
-              exit 1
-            fi
+            if grep -q "FATAL EXCEPTION" /tmp/logcat.txt; then echo "::error::The app crashed on launch"; grep -A 25 "FATAL EXCEPTION" /tmp/logcat.txt; exit 1; fi
             adb exec-out screencap -p > /tmp/screen.png
             ls -l /tmp/screen.png
       - name: Check that the app called the API
