@@ -39,59 +39,32 @@ jobs:
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
 
-  # EAS needs a robot token and a linked project. Both live outside the
-  # repository, so the mobile jobs are skipped rather than failed when they are
-  # missing, which keeps a tag run green without them.
-  expo:
-    name: Check the Expo setup
-    runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.check.outputs.ready }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - id: check
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::notice::Skipping the mobile builds: no EXPO_TOKEN secret. Create one at https://expo.dev/settings/access-tokens and add it under Settings -> Secrets and variables -> Actions."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          elif ! grep -q '"projectId"' apps/mobile/app.json; then
-            echo "::notice::Skipping the mobile builds: apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once and commit the change."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
+  # The mobile installers are built natively here rather than through EAS, so a
+  # release needs no Expo account. The release APK is signed with the debug
+  # keystore (installable by sideloading) and the iOS .ipa is unsigned, which
+  # means it has to be re-signed with an Apple developer certificate to install.
   android:
-    name: Android APK (EAS)
-    needs: expo
-    if: needs.expo.outputs.ready == 'true'
+    name: Android APK
     runs-on: ubuntu-latest
-    env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
       - run: pnpm install --frozen-lockfile
-      - name: Build the APK
+      - name: Create the native Android project
         working-directory: apps/mobile
-        run: |
-          pnpm exec eas build --platform android --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-android.json"
-          url=$(node -e '
-            const builds = require(process.argv[1]);
-            const build = builds[0] ?? {};
-            const url = build.artifacts?.buildUrl;
-            if (!url) {
-              console.error("EAS did not return an APK URL:", JSON.stringify(build).slice(0, 2000));
-              process.exit(1);
-            }
-            console.log(url);
-          ' "$RUNNER_TEMP/eas-android.json")
-          curl -fL "$url" -o "MyMuse-${{ github.ref_name }}.apk"
+        run: pnpm exec expo prebuild --platform android --no-install
+      - name: Build the APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Name the APK after the tag
+        run: cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "apps/mobile/MyMuse-${{ github.ref_name }}.apk"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: android-apk
@@ -99,12 +72,8 @@ jobs:
           path: apps/mobile/MyMuse-${{ github.ref_name }}.apk
 
   ios:
-    name: iOS build (EAS)
-    needs: expo
-    if: needs.expo.outputs.ready == 'true'
-    runs-on: ubuntu-latest
-    env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    name: iOS app (unsigned)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -112,21 +81,26 @@ jobs:
           node-version: 24
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - run: pnpm install --frozen-lockfile
-      - name: Build the iOS app
+      - name: Create the native iOS project
         working-directory: apps/mobile
+        run: pnpm exec expo prebuild --platform ios --no-install
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: pod install
+      - name: Build the app without signing
+        working-directory: apps/mobile/ios
         run: |
-          pnpm exec eas build --platform ios --profile preview --non-interactive --wait --json > "$RUNNER_TEMP/eas-ios.json"
-          url=$(node -e '
-            const builds = require(process.argv[1]);
-            const build = builds[0] ?? {};
-            const url = build.artifacts?.buildUrl;
-            if (!url) {
-              console.error("EAS did not return an iOS build URL:", JSON.stringify(build).slice(0, 2000));
-              process.exit(1);
-            }
-            console.log(url);
-          ' "$RUNNER_TEMP/eas-ios.json")
-          curl -fL "$url" -o "MyMuse-${{ github.ref_name }}.ipa"
+          xcodebuild -workspace MyMuse.xcworkspace -scheme MyMuse -configuration Release \
+            -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            -quiet
+      - name: Package the .ipa
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R apps/mobile/ios/build/Build/Products/Release-iphoneos/MyMuse.app "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry "MyMuse-${{ github.ref_name }}.ipa" Payload
+          mv "MyMuse-${{ github.ref_name }}.ipa" "$GITHUB_WORKSPACE/apps/mobile/"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ios-build
