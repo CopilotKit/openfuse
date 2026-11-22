@@ -25,7 +25,10 @@ jobs:
     # without hardware acceleration. Same-arch x86_64 emulation is the fastest
     # option that still executes the released native libraries.
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+    env:
+      # Recent emulator builds refuse software CPU emulation unless asked.
+      ANDROID_I_WANT_MY_TCG: "yes"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -94,7 +97,7 @@ jobs:
           disable-linux-hw-accel: true
           emulator-boot-timeout: 1800
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -accel off
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             set -e
             adb install -r apk/*.apk
