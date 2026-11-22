@@ -40,11 +40,21 @@ jobs:
       - name: Start the API and a logging proxy
         run: |
           set -euo pipefail
-          PORT=8788 pnpm dev > /tmp/api.log 2>&1 &
+          # No CopilotKit key is available here, but the server only needs one to
+          # be non-empty in sample mode. Protected routes answer 401 without a
+          # session, which still proves the app reached the API.
+          WORKSPACE_MODE=sample COPILOTKIT_TELEMETRY_DISABLED=true \
+            CPK_INTELLIGENCE_API_KEY=smoke-test-placeholder PORT=8788 pnpm dev > /tmp/api.log 2>&1 &
+          ready=false
           for _ in $(seq 1 60); do
-            curl -sf http://127.0.0.1:8788/api/health >/dev/null && break
+            if curl -sf http://127.0.0.1:8788/api/health >/dev/null; then ready=true; break; fi
             sleep 2
           done
+          if [ "$ready" != true ]; then
+            echo "::error::The API did not start"
+            tail -20 /tmp/api.log
+            exit 1
+          fi
           curl -s http://127.0.0.1:8788/api/health
           echo
           cat > /tmp/proxy.mjs <<'JS'
