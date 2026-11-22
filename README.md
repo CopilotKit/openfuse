@@ -156,12 +156,14 @@ Both commands print a download link when the cloud build finishes. iOS builds ne
 
 Run **Actions → Release → Run workflow**, or push a `v*` tag. The desktop matrix (Ubuntu, Windows, macOS) uploads the installable files as workflow artifacts, and the Android and iOS jobs upload the `.apk` and `.ipa` EAS produces.
 
+A tag run additionally creates the [GitHub Release](https://github.com/Hamza35779/MyMuse/releases) for that tag and attaches every file built in the run, so the version becomes downloadable from the Releases page. The last job of a run lists what it published.
+
 The mobile jobs need two things set up once:
 
-1. Link the Expo project: `cd apps/mobile && npx eas-cli login && npx eas-cli init`, then commit the generated `extra.eas.projectId` in `apps/mobile/app.json`. Without it the jobs stop with a message telling you to do this.
+1. Link the Expo project: `cd apps/mobile && npx eas-cli login && npx eas-cli init`, then commit the generated `extra.eas.projectId` in `apps/mobile/app.json`.
 2. Create a robot token at [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) and add it as a repository secret named `EXPO_TOKEN` (**Settings → Secrets and variables → Actions → New repository secret**).
 
-With both in place, run the workflow; it waits for each EAS build and attaches the download as the `android-apk` and `ios-build` artifacts. The iOS build also needs an Apple Developer account and registered devices, which EAS asks for on the first run.
+Until both are in place the mobile jobs are skipped with a notice in the run log instead of failing it, so you still get the desktop installers. Once configured, the workflow waits for each EAS build and adds the `.apk` and `.ipa` to the release. The iOS build also needs an Apple Developer account and registered devices, which EAS asks for on the first run.
 
 ## Deploy on Render
 

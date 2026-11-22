@@ -39,8 +39,34 @@ jobs:
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb
 
+  # EAS needs a robot token and a linked project. Both live outside the
+  # repository, so the mobile jobs are skipped rather than failed when they are
+  # missing, which keeps a tag run green without them.
+  expo:
+    name: Check the Expo setup
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: check
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::notice::Skipping the mobile builds: no EXPO_TOKEN secret. Create one at https://expo.dev/settings/access-tokens and add it under Settings -> Secrets and variables -> Actions."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif ! grep -q '"projectId"' apps/mobile/app.json; then
+            echo "::notice::Skipping the mobile builds: apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once and commit the change."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
   android:
     name: Android APK (EAS)
+    needs: expo
+    if: needs.expo.outputs.ready == 'true'
     runs-on: ubuntu-latest
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -51,16 +77,6 @@ jobs:
           node-version: 24
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - run: pnpm install --frozen-lockfile
-      - name: Check the Expo credentials
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Missing EXPO_TOKEN. Create one at https://expo.dev/settings/access-tokens, then add it under Settings -> Secrets and variables -> Actions -> New repository secret."
-            exit 1
-          fi
-          if ! grep -q '"projectId"' apps/mobile/app.json; then
-            echo "::error::apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once, commit the change, and rerun this workflow."
-            exit 1
-          fi
       - name: Build the APK
         working-directory: apps/mobile
         run: |
@@ -84,6 +100,8 @@ jobs:
 
   ios:
     name: iOS build (EAS)
+    needs: expo
+    if: needs.expo.outputs.ready == 'true'
     runs-on: ubuntu-latest
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -94,16 +112,6 @@ jobs:
           node-version: 24
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - run: pnpm install --frozen-lockfile
-      - name: Check the Expo credentials
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Missing EXPO_TOKEN. Create one at https://expo.dev/settings/access-tokens, then add it under Settings -> Secrets and variables -> Actions -> New repository secret."
-            exit 1
-          fi
-          if ! grep -q '"projectId"' apps/mobile/app.json; then
-            echo "::error::apps/mobile/app.json has no extra.eas.projectId. Run 'npx eas-cli init' in apps/mobile once, commit the change, and rerun this workflow."
-            exit 1
-          fi
       - name: Build the iOS app
         working-directory: apps/mobile
         run: |
@@ -124,3 +132,29 @@ jobs:
           name: ios-build
           if-no-files-found: error
           path: apps/mobile/MyMuse-${{ github.ref_name }}.ipa
+
+  publish:
+    name: Publish the release
+    needs: [desktop, android, ios]
+    if: always() && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Attach the installers to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          files=$(find dist -type f ! -name 'builder-debug.yml' | sort)
+          if [ -z "$files" ]; then
+            echo "::error::No installer was produced, so there is nothing to publish."
+            exit 1
+          fi
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "MyMuse $TAG" --generate-notes
+          echo "$files" | tr '\n' '\0' | xargs -0 gh release upload "$TAG" --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name'
