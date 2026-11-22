@@ -100,10 +100,17 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
             set -e
+            # Software emulation boots slowly, so wait for the package service
+            # instead of assuming adb being up means the system is ready.
+            for _ in $(seq 1 60); do
+              adb shell pm path android > /dev/null 2>&1 && break
+              sleep 5
+            done
+            adb shell pm path android
             adb install -r apk/*.apk
             adb shell pm list packages | grep app.mymuse.mobile
             adb shell am start -n app.mymuse.mobile/.MainActivity
-            sleep 30
+            sleep 45
             adb shell pidof app.mymuse.mobile
             adb logcat -d > /tmp/logcat.txt
             if grep -q "FATAL EXCEPTION" /tmp/logcat.txt; then
