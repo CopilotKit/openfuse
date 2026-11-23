@@ -1,13 +1,11 @@
 name: APK smoke test
 
-# Downloads a released APK, installs it in an Android emulator, launches it,
-# and checks that it called the API. The app defaults to http://10.0.2.2:8787 on
+# Builds the APK from the checkout, installs it in an Android emulator, launches
+# it, and checks that it opened a session with the API. The app defaults to http://10.0.2.2:8787 on
 # Android, which is the host loopback from inside the emulator, so the API runs
 # on the runner behind a logging proxy that records every request.
 
 on:
-  push:
-    branches: [apk-smoke]
   workflow_dispatch:
 
 permissions:
