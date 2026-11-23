@@ -46,10 +46,15 @@ export const s = StyleSheet.create({
   heading: { color: colors.text, fontSize: 16, fontWeight: "600", letterSpacing: -0.25 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 23,
+    borderRadius: 24,
     borderWidth: 0,
     borderColor: colors.line,
     padding: 20,
+    shadowColor: "#12303F",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 18,
+    elevation: 2,
   },
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 18 },
   input: {
@@ -399,7 +404,7 @@ export function LinkRow({
     </Pressable>
   );
 }
-/** MyMuse's original capybara, shared by every assistant surface. */
+/** MyMuse's plush muse, shared by every assistant surface. */
 export function Mascot({
   size = 42,
   variant = "sky",
@@ -408,12 +413,12 @@ export function Mascot({
   variant?: "sky" | "sand" | "lilac";
 }) {
   const palette = {
-    sky: "#ECF5FA",
+    sky: "#E4F1FF",
     sand: "#FAF0DF",
     lilac: "#F1ECF9",
   }[variant];
   return (
-    <View accessibilityLabel="MyMuse capybara" style={{ width: size, height: size }}>
+    <View accessibilityLabel="MyMuse mascot" style={{ width: size, height: size }}>
       <View
         style={{
           position: "absolute",
@@ -426,7 +431,7 @@ export function Mascot({
         }}
       />
       <Image
-        source={require("../assets/capybara.png")}
+        source={require("../assets/mascot.png")}
         resizeMode="contain"
         style={{ width: size, height: size }}
         accessible={false}

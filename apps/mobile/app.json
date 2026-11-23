@@ -7,10 +7,31 @@
     "orientation": "default",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "ios": { "supportsTablet": true, "bundleIdentifier": "app.mymuse.mobile" },
-    "android": { "package": "app.mymuse.mobile" },
-    "web": { "bundler": "metro", "name": "MyMuse — a little room for everything" },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FCFCFC"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.mymuse.mobile",
+      "icon": "./assets/icon.png"
+    },
+    "android": {
+      "package": "app.mymuse.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#D7EAFF"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "name": "MyMuse — a little room for everything",
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
+      "./plugins/with-local-http.cjs",
       "expo-document-picker",
       "@config-plugins/react-native-blob-util",
       "@config-plugins/react-native-pdf"

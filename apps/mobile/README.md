@@ -6,7 +6,7 @@ A shared React Native workspace for iOS, Android, and the web preview. The clien
 
 [Recording setup](../../docs/DEMO.md)
 
-Meet MyMuse's capybara in two different journeys: Hacker News and CopilotKit on iPhone; reading a school-trip email and researching aquarium exhibits on desktop. Results appear inline in chat, with **Take control** opening the same browser session. Send and Stop share the input pill's primary control.
+Meet MyMuse's plush muse in two different journeys: Hacker News and CopilotKit on iPhone; reading a school-trip email and researching aquarium exhibits on desktop. Results appear inline in chat, with **Take control** opening the same browser session. Send and Stop share the input pill's primary control.
 
 ## Run
 

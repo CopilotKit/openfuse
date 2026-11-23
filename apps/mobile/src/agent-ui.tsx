@@ -34,6 +34,7 @@ import type {
   RunEvent,
 } from "../../../packages/domain/src/agent";
 import { useAgentWorkspace } from "./agent-workspace";
+import { FeatureGrid, matchingFeatures } from "./features";
 import { ActivityScreen, ConnectionsScreen } from "./screens";
 import {
   Button,
@@ -1719,7 +1720,7 @@ export function NotificationsSheet() {
   );
 }
 export function AppsScreen() {
-  const { navigate, open } = useWorkspace();
+  const { ask, navigate, open } = useWorkspace();
   const { data, mutate } = useAgentWorkspace();
   const [query, setQuery] = useState("");
   const [settings, setSettings] = useState(false);
@@ -1788,8 +1789,16 @@ export function AppsScreen() {
         label="Search apps"
         value={query}
         onChangeText={setQuery}
-        placeholder="Search connectors"
+        placeholder="Search features and connectors"
       />
+      <View style={{ gap: 14 }}>
+        <Text style={s.heading}>What MyMuse can do</Text>
+        {matchingFeatures(query).length ? (
+          <FeatureGrid query={query} onPress={(feature) => ask(feature.prompt)} />
+        ) : (
+          <Text style={s.small}>No features match “{query}”.</Text>
+        )}
+      </View>
       <ConnectionsScreen query={query} />
       <Text style={s.heading}>On your computer</Text>
       <Card style={{ paddingVertical: 3, backgroundColor: "#F4F5F6" }}>

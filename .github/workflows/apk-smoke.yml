@@ -9,11 +9,6 @@ on:
   push:
     branches: [apk-smoke]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Release tag whose APK should be tested
-        required: true
-        default: v0.1.0
 
 permissions:
   contents: read
@@ -36,13 +31,19 @@ jobs:
           node-version: 24
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - run: pnpm install --frozen-lockfile
-      - name: Fetch the released APK
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Build the APK
+        working-directory: apps/mobile
         run: |
-          mkdir -p apk
-          gh release download "${{ inputs.tag }}" -R "${{ github.repository }}" -p "*.apk" -D apk
-          ls -l apk
+          pnpm exec expo prebuild --platform android --no-install
+          cd android
+          ./gradlew assembleRelease --no-daemon
+          mkdir -p ../../../apk
+          cp app/build/outputs/apk/release/app-release.apk ../../../apk/MyMuse.apk
+          ls -l ../../../apk
       - name: Start the API and a logging proxy
         run: |
           set -euo pipefail
@@ -88,7 +89,8 @@ jobs:
           JS
           node /tmp/proxy.mjs > /tmp/proxy.log 2>&1 &
           sleep 2
-          curl -s -o /dev/null -w "proxy health: %{http_code}\n" http://127.0.0.1:8787/api/health
+          # Talk to the API directly so the request log only holds app traffic.
+          curl -s -o /dev/null -w "api health: %{http_code}\n" http://127.0.0.1:8788/api/health
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -123,8 +125,10 @@ jobs:
         run: |
           echo "--- API requests seen ---"
           cat /tmp/requests.log || true
-          grep -q "/api/" /tmp/requests.log || {
-            echo "::error::The app never requested the API"
+          # The app opens a session before it can show anything, so a session
+          # request proves the APK really reached the API.
+          grep -q "POST /api/session" /tmp/requests.log || {
+            echo "::error::The app never opened a session with the API"
             exit 1
           }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
