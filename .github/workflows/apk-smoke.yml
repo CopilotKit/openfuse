@@ -97,7 +97,11 @@ jobs:
           disable-linux-hw-accel: true
           emulator-boot-timeout: 1800
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          # Software emulation is CPU bound: a 2-core AVD with extra RAM keeps
+          # system_server from being starved (and killed) right after boot.
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -no-snapshot -no-snapshot-save
+            -noaudio -no-boot-anim -memory 4096 -cores 2
           script: |
             set -e
             # Software emulation boots slowly, so wait for the package service
