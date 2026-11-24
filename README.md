@@ -1,11 +1,11 @@
 <div align="center">
 
-<a href="https://open.bot"><img src="assets/openfuse-now-in-openbot.png" alt="OpenFuse is now a skin in OpenBot. This repo is no longer maintained. Use it at open.bot. The screenshot shows OpenBot with the OpenFuse skin, picked under Settings, Skin, OpenFuse." width="880"></a>
+<a href="https://open.bot"><img src="assets/openfuse-now-in-openbot.png" alt="This is no longer maintained. We've merged OpenFuse into OpenBot as a skin. Get it at https://open.bot. The screenshot shows OpenBot with the OpenFuse skin, picked under Settings, Skin, OpenFuse." width="880"></a>
 
 </div>
 
 > [!IMPORTANT]
-> OpenFuse is no longer maintained. It's now a skin in OpenBot. Use it at https://open.bot (code: https://github.com/CopilotKit/OpenBot)
+> OpenFuse is no longer maintained. We've merged it into OpenBot as a skin. Get it at https://open.bot (code: https://github.com/CopilotKit/OpenBot)
 
 <div align="center">
 
