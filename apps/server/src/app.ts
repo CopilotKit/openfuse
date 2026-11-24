@@ -22,7 +22,7 @@ import type { Store } from "./db.ts";
 import { agentRoutes } from "./engine/routes.ts";
 import { AgentService } from "./engine/service.ts";
 import { AppError } from "./errors.ts";
-import { Files } from "./files.ts";
+import { encodeDispositionName, Files } from "./files.ts";
 import { GoogleAuth } from "./google-auth.ts";
 import { rateLimit } from "./rate-limit.ts";
 import { WorkspaceService } from "./workspace.ts";
@@ -264,7 +264,7 @@ export async function createApp(
   app.get("/api/files/:id/content", async (c) => {
     const file = await files.get(c.get("owner"), c.req.param("id"));
     c.header("Content-Type", "application/pdf");
-    c.header("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`);
+    c.header("Content-Disposition", `inline; filename*=UTF-8''${encodeDispositionName(file.name)}`);
     return c.body(await files.bytes(c.get("owner"), file.id));
   });
   app.post("/api/files/:id/fill", async (c) => {

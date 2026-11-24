@@ -20,6 +20,16 @@ export function sanitizeFileName(name: string): string {
   return cleaned || "document.pdf";
 }
 
+/** RFC 5987 attr-char encoding for a Content-Disposition filename value. */
+export function encodeDispositionName(name: string): string {
+  // encodeURIComponent leaves these sub-delimiters alone, but attr-char does not
+  // include them and the apostrophe is the value delimiter in filename*=UTF-8''.
+  return encodeURIComponent(name).replace(
+    /['()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+}
+
 function assertFileId(id: string): void {
   if (!FILE_ID.test(id)) throw new AppError("File not found", 404);
 }
