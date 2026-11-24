@@ -1203,7 +1203,13 @@ export class AgentService {
     };
   }
   private matchesPrice(text: string, threshold: number) {
-    const matches = [...text.matchAll(/(?:\$|USD)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)/g)];
+    const amount = String.raw`\d+(?:,\d{3})*(?:\.\d{1,2})?`;
+    // Explicit prices appear both before the amount ("$9.99", "USD 9.99") and
+    // after it ("9.99 USD"); a watch should see either spelling.
+    const matches = [
+      ...text.matchAll(new RegExp(String.raw`(?:\$|USD)\s*(${amount})`, "g")),
+      ...text.matchAll(new RegExp(String.raw`(${amount})\s*USD`, "g")),
+    ];
     return matches.some((m) => Number(m[1].replace(/,/g, "")) < threshold);
   }
 }
