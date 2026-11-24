@@ -1,49 +1,54 @@
-  <div align="center">
+<div align="center">
+
+<a href="https://open.bot"><img src="assets/openfuse-now-in-openbot.png" alt="OpenFuse is now a skin in OpenBot. This repo is no longer maintained. Use it at open.bot. The screenshot shows OpenBot with the OpenFuse skin, picked under Settings, Skin, OpenFuse." width="880"></a>
+
+</div>
+
+> [!IMPORTANT]
+> OpenFuse is no longer maintained. It's now a skin in OpenBot. Use it at https://open.bot (code: https://github.com/CopilotKit/OpenBot)
+
+<div align="center">
 
 # OpenFuse
 
 **A personal agent with a browser, terminal, files, and work that keeps going. Compatible with any agent harness.**
 
-Ask for an outcome. Follow the plan, review actions, and come back to the result.
-Built with CopilotKit React Native for iOS, Android, and web.
-
-**OpenFuse is now available as a UX skin in [OpenBot](https://open.bot)**, a more robust version with sign-in, per-Bot permissions and an audit trail, maintained by CopilotKit. This repo stays a community-maintained starter for building your own project.
-
 [![Try OpenBot at open.bot](https://img.shields.io/badge/Try_OpenBot-open.bot_%E2%86%92-6E6AE0?style=for-the-badge&labelColor=3A3466)](https://open.bot)
 [![OpenBot on GitHub](https://img.shields.io/github/stars/CopilotKit/OpenBot?style=for-the-badge&logo=github&label=OpenBot%20on%20GitHub&labelColor=3A3466&color=6E6AE0)](https://github.com/CopilotKit/OpenBot)
 
-[Quick start](#quick-start) · [Demo](#demo) · [Features](#features) · [Architecture](#architecture) · [Docs](docs/README.md) · [Contributing](CONTRIBUTING.md)
-
 [![CI](https://github.com/CopilotKit/openfuse/actions/workflows/ci.yml/badge.svg)](https://github.com/CopilotKit/openfuse/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Also a skin in OpenBot](https://img.shields.io/badge/also%20a%20skin%20in-OpenBot-6430AB)](https://open.bot)
+[![Now a skin in OpenBot](https://img.shields.io/badge/now%20a%20skin%20in-OpenBot-6430AB)](https://open.bot)
+![Status: no longer maintained](https://img.shields.io/badge/status-no%20longer%20maintained-lightgrey.svg)
 
 <a href="https://trendshift.io/repositories/254992?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-254992" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/254992/daily?language=TypeScript" alt="CopilotKit%2Fopenfuse | Trendshift" width="250" height="55"/></a>
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CopilotKit/openfuse)
-
-Clone this template and customize it however you want.
-
-<a href="https://open.bot"><img src="assets/openbot-openfuse-skin.png" alt="OpenBot running the OpenFuse skin" width="720"></a><br>
-<sub>OpenBot with the OpenFuse skin, picked under Settings → Skin</sub>
 
 **[Bringing OpenFuse to your company? Talk to us about OpenBot →](https://www.copilotkit.ai/talk-to-an-engineer?ref=openfuse_hero)**
 
 </div>
 
-> **Alpha, for self-hosting and building on.** Open-ended reasoning, live Google accounts, and CopilotKit Rich Threads require their own configuration. See [what is verified](docs/VERIFICATION.md) and the [roadmap](ROADMAP.md).
+## Use OpenFuse in OpenBot
 
-## OpenFuse and OpenBot
+OpenFuse is now a skin in [OpenBot](https://open.bot), CopilotKit's open-source agent platform. Pick it there and you get OpenFuse's look, with everything OpenBot does underneath. OpenBot adds sign-in, per-Bot permissions and an audit trail, and the CopilotKit team maintains it.
 
-OpenFuse also ships as a skin in [OpenBot](https://open.bot), CopilotKit's open-source agent platform, alongside [OpenDots](https://github.com/CopilotKit/OpenDots) and [OpenDuet](https://github.com/CopilotKit/OpenDuet). Pick it there and you get OpenFuse's look, with everything OpenBot does underneath.
+1. Get OpenBot at [open.bot](https://open.bot).
+2. In OpenBot, open **Settings** and pick **OpenFuse** under **Skin**.
 
-| If you want to | Start here |
+| If you want to | Go to |
 | --- | --- |
-| Try OpenFuse on your phone, or fork the app | This repo: [Quick start](#quick-start) |
-| Run it for your team, with sign-in, per-Bot permissions and an audit trail | [OpenBot](https://github.com/CopilotKit/OpenBot#quick-start), then **Settings → Skin → OpenFuse** |
+| Use OpenFuse | [open.bot](https://open.bot), then **Settings → Skin → OpenFuse** |
+| Read or build on the code | [CopilotKit/OpenBot](https://github.com/CopilotKit/OpenBot) |
 | Have us stand it up inside your company | [Talk to an engineer](https://www.copilotkit.ai/talk-to-an-engineer?ref=openfuse_readme_openbot) |
 
-OpenDots, OpenFuse and OpenDuet are community maintained, and issues and pull requests are welcome in each repo. OpenBot is the one the CopilotKit team maintains and ships fixes to.
+This repository is no longer maintained, and new work happens in OpenBot. The original README, with this repo's demos and setup, is kept below for reference.
+
+<details>
+<summary><b>Original README, including setup (no longer maintained)</b></summary>
+
+Ask for an outcome. Follow the plan, review actions, and come back to the result.
+Built with CopilotKit React Native for iOS, Android, and web.
+
+> **Alpha, for self-hosting and building on.** Open-ended reasoning, live Google accounts, and CopilotKit Rich Threads require their own configuration. See [what is verified](docs/VERIFICATION.md) and the [roadmap](ROADMAP.md).
 
 ## Demo
 
@@ -113,13 +118,11 @@ For iOS or Android, use `pnpm --dir apps/mobile ios` or `pnpm --dir apps/mobile 
 
 ## Deploy on Render
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/CopilotKit/openfuse)
-
 [render.yaml](render.yaml) deploys three services: the API, the web app, and a private browser. The API answers `/` with JSON, so the UI is its own static site.
 
 ### First run
 
-1. Click **Deploy to Render**. Wait until `openfuse-api`, `openfuse-web`, and `openfuse-browser` are live.
+1. Open [Deploy to Render](https://render.com/deploy?repo=https://github.com/CopilotKit/openfuse). Wait until `openfuse-api`, `openfuse-web`, and `openfuse-browser` are live.
 2. On `openfuse-api`, open **Environment** and copy `OPENFUSE_ACCESS_KEY`.
 3. Open the `openfuse-web` URL and sign in with that key.
 4. Send a message.
@@ -247,7 +250,7 @@ flowchart TD
 
 ### OpenBot compatibility
 
-This repo's native client and personal-agent workflows run without OpenBot. The OpenFuse skin in OpenBot is OpenBot's own app with OpenFuse's look, described in [OpenFuse and OpenBot](#openfuse-and-openbot). The disabled OpenBot adapter is pinned and contract-tested against upstream interfaces. Live user/session bridging, routine mapping, and computer backend wiring remain future work. OpenBot's Intelligence runtime is not a raw AG-UI endpoint. [Integration contract](docs/OPENBOT-INTEGRATION.md).
+This repo's native client and personal-agent workflows run without OpenBot. The OpenFuse skin in OpenBot is OpenBot's own app with OpenFuse's look, described in [Use OpenFuse in OpenBot](#use-openfuse-in-openbot). The disabled OpenBot adapter is pinned and contract-tested against upstream interfaces. Live user/session bridging, routine mapping, and computer backend wiring remain future work. OpenBot's Intelligence runtime is not a raw AG-UI endpoint. [Integration contract](docs/OPENBOT-INTEGRATION.md).
 
 ## Development
 
@@ -266,8 +269,12 @@ pnpm test:computer
 
 Platform build scripts export JavaScript/Hermes bundles; they do not produce signed app binaries. Browser checks use controlled HTTP fixtures; the local check requires installed Chromium, and the container check requires Docker and registry access to build its image. CI also exercises the browser and Linux computer containers. See [contribution guidance](CONTRIBUTING.md) and [verification results](docs/VERIFICATION.md).
 
-## Contributing and license
+## Contributing
 
-Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), [ROADMAP.md](ROADMAP.md), and the [security policy](SECURITY.md).
+This repository is no longer maintained. To contribute, start at [OpenBot](https://github.com/CopilotKit/OpenBot). To report a security issue, see the [security policy](SECURITY.md).
+
+</details>
+
+## License
 
 MIT licensed. Built by CopilotKit. Its original interface and fictional assets are included. Website, email, and document content supplies evidence, not permission to act.
