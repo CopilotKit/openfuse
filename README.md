@@ -1,14 +1,5 @@
 <div align="center">
 
-<a href="https://open.bot"><img src="assets/openfuse-now-in-openbot.png" alt="This is no longer maintained. We've merged OpenFuse into OpenBot as a skin. Get it at https://open.bot. The screenshot shows OpenBot with the OpenFuse skin, picked under Settings, Skin, OpenFuse." width="880"></a>
-
-</div>
-
-> [!IMPORTANT]
-> OpenFuse is no longer maintained. We've merged it into OpenBot as a skin. Get it at https://open.bot (code: https://github.com/CopilotKit/OpenBot)
-
-<div align="center">
-
 # OpenFuse
 
 **A personal agent with a browser, terminal, files, and work that keeps going. Compatible with any agent harness.**
@@ -22,6 +13,15 @@
 ![Status: no longer maintained](https://img.shields.io/badge/status-no%20longer%20maintained-lightgrey.svg)
 
 <a href="https://trendshift.io/repositories/254992?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-254992" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/254992/daily?language=TypeScript" alt="CopilotKit%2Fopenfuse | Trendshift" width="250" height="55"/></a>
+
+<a href="https://open.bot"><img src="assets/openfuse-now-in-openbot.png" alt="This is no longer maintained. We've merged OpenFuse into OpenBot as a skin. Get it at https://open.bot. The screenshot shows OpenBot with the OpenFuse skin, picked under Settings, Skin, OpenFuse." width="880"></a>
+
+</div>
+
+> [!IMPORTANT]
+> OpenFuse is no longer maintained. We've merged it into OpenBot as a skin. Get it at https://open.bot (code: https://github.com/CopilotKit/OpenBot)
+
+<div align="center">
 
 **[Bringing OpenFuse to your company? Talk to us about OpenBot →](https://www.copilotkit.ai/talk-to-an-engineer?ref=openfuse_hero)**
 
