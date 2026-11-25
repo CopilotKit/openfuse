@@ -27,7 +27,7 @@ export async function browserFixture(
   await once(server, "listening");
   const address = server.address();
   assert(address && typeof address !== "string");
-  const directory = await mkdtemp(join(tmpdir(), "openmuse-browser-service-"));
+  const directory = await mkdtemp(join(tmpdir(), "openfuse-browser-service-"));
   const db = await createStore();
   const config: Config = {
     mode: "sample",
@@ -36,6 +36,7 @@ export async function browserFixture(
     publicUrl: "http://localhost:8787",
     dataDir: directory,
     agentBackend: "sample",
+    intelligenceApiKey: "test-project-key-never-sent",
     googleRedirectUri: "http://localhost:8787/api/google/callback",
     allowedOrigins: [],
     workerUrl: `http://127.0.0.1:${address.port}`,
