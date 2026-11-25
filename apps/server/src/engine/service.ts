@@ -1104,7 +1104,11 @@ export class AgentService {
         ? Boolean(previousHash && previousHash !== currentHash)
         : monitor.condition === "contains"
           ? text.toLowerCase().includes(wanted)
-          : this.matchesPrice(text, Number(monitor.value));
+          : this.matchesPrice(
+              text,
+              Number(monitor.value),
+              monitor.condition === "price_above" ? "above" : "below",
+            );
     const previouslyMatched = Boolean(task.state.matched);
     // For change watches, keep the page lines and a relative-time-free fingerprint of the whole text.
     const change = monitor.condition === "change";
@@ -1202,8 +1206,11 @@ export class AgentService {
       plan: task.plan.map((s) => ({ ...s, status: "succeeded" })),
     };
   }
-  private matchesPrice(text: string, threshold: number) {
+  private matchesPrice(text: string, threshold: number, direction: "above" | "below") {
     const matches = [...text.matchAll(/(?:\$|USD)\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)/g)];
-    return matches.some((m) => Number(m[1].replace(/,/g, "")) < threshold);
+    return matches.some((m) => {
+      const price = Number(m[1].replace(/,/g, ""));
+      return direction === "above" ? price > threshold : price < threshold;
+    });
   }
 }
