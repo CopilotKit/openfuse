@@ -133,6 +133,28 @@ export class AgentService {
       tone: "warm",
     });
   }
+  /**
+   * Remember a confirmed fact once. The id comes from the text alone, so the same
+   * fact confirmed in a later turn updates nothing and does not become a second row.
+   */
+  async rememberFact(owner: string, text: string, source: string): Promise<AgentMemory> {
+    const normalized = text.trim();
+    if (!normalized) throw new AppError("A remembered fact needs text", 422);
+    // Rows saved before ids were stable keep their old id; reuse one by text so the
+    // first repeat after an upgrade does not add a second copy.
+    const existing = (await this.db.list<AgentMemory>(owner, "memories")).find(
+      (memory) => memory.text.trim() === normalized,
+    );
+    if (existing) return existing;
+    const memory: AgentMemory = {
+      id: hash(`memory:${normalized}`),
+      text: normalized,
+      source,
+      createdAt: date(),
+    };
+    await this.db.insertIfAbsent(owner, "memories", memory);
+    return (await this.db.get<AgentMemory>(owner, "memories", memory.id)) ?? memory;
+  }
   async snapshot(owner: string): Promise<AgentWorkspace> {
     await this.ensure(owner);
     const [tasks, goals, monitors, ideas, memories, artifacts, notifications, identity] =
